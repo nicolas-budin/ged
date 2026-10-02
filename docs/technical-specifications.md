@@ -51,7 +51,7 @@ Ce document décrit la **solution cible** de la V1. Elle est construite **progre
 | Composant | Rôle | Technologie | Déploiement |
 |---|---|---|---|
 | `ged-web` | Interface utilisateur | React 18+, TypeScript, Vite, TanStack Query, PDF.js, bpmn-js | Nginx (UBI), Deployment |
-| `ged-api` | API REST, sécurité, schéma, workflows | Java 21, Spring Boot 3.x, Spring Security, Flowable | Deployment + HPA (CPU) |
+| `ged-api` | API REST, sécurité, schéma, workflows | Java 25, Spring Boot 4.1, Spring Security, Flowable 8 | Deployment + HPA (CPU) |
 | `ged-worker` | Pipeline asynchrone | Spring Boot, Spring Kafka, Tika, Tesseract, client clamd, client Gotenberg, Spring AI | Deployment + HPA (lag Kafka) |
 | `ged-importer` | Import massif | Spring Batch | Job OpenShift (à la demande) |
 | `ged-core` | Domaine partagé (bibliothèque) | JPA, services, ports | — |
@@ -69,7 +69,7 @@ Ce document décrit la **solution cible** de la V1. Elle est construite **progre
 
 ```
 ged/
-├─ pom.xml              # parent : Java 21, BOM Spring Boot, versions
+├─ pom.xml              # parent : Java 25, Spring Boot 4.1, versions
 ├─ ged-core/            # domaine, JPA, services, ports (ContentStorage, SearchIndex, DocumentClassifier…)
 ├─ ged-api/             # openapi/ged-v1.yaml, controllers (interfaces générées), sécurité, Flowable
 ├─ ged-worker/          # étapes du pipeline (consommateurs Kafka)

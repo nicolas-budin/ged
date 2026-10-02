@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: ged-api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # N'exposer que le strict nécessaire : santé et informations de build.
+        include: health,info
+  info:
+    build:
+      enabled: true

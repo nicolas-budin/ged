@@ -39,15 +39,15 @@ Critères d'acceptation :
 - `GET /actuator/health` renvoie `UP`.
 - Un test d'intégration Spring Boot couvre `/ping`.
 
-Notes techniques : parent Maven + module `ged-api`, Java 21, Spring Boot 3.x.
+Notes techniques : parent Maven + module `ged-api`, Java 25, Spring Boot 4.1.
 
 Tâches :
-- [ ] T01.1 Créer le `pom.xml` parent : Java 21, BOM Spring Boot 3.x, gestion des versions, miroir Maven interne dans `.mvn/settings.xml`
-- [ ] T01.2 Créer le module `ged-api` : classe `GedApplication`, `application.yml`
-- [ ] T01.3 Écrire `PingController` → `GET /api/v1/ping`, avec la version lue depuis `build-info`
-- [ ] T01.4 Activer Actuator (`health`, `info`) et n'exposer que ces endpoints
-- [ ] T01.5 Écrire le test d'intégration `PingControllerIT` (`@SpringBootTest` + `MockMvc`)
-- [ ] T01.6 Ajouter `.gitignore`, `README.md` et le wrapper Maven (`mvnw`)
+- [x] T01.1 Créer le `pom.xml` parent : Java 25, Spring Boot 4.1.1 (parent), groupId `ch.louhan.ged` (Maven Central en dev ; miroir interne pour la CI, plus tard)
+- [x] T01.2 Créer le module `ged-api` : classe `GedApplication`, `application.yml`
+- [x] T01.3 Écrire `PingController` → `GET /api/v1/ping`, avec la version lue depuis `build-info`
+- [x] T01.4 Activer Actuator (`health`, `info`) et n'exposer que ces endpoints
+- [x] T01.5 Écrire le test d'intégration `PingControllerIT` (`@SpringBootTest` + `MockMvc`)
+- [x] T01.6 Ajouter `.gitignore`, `README.md` et le wrapper Maven (`mvnw`)
 
 ### Itération 2 : Dossiers
 

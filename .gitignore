@@ -1,0 +1,22 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+
+# Frontend (itérations à venir)
+node_modules/
+dist/
+
+# Secrets locaux : ne jamais committer
+.env
+*.local.yml

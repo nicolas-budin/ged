@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  POM parent de la GED.
+  Il ne contient pas de code : il fixe les versions (Java, Spring Boot)
+  et liste les modules. Chaque module hérite de cette configuration.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Hériter de Spring Boot donne les versions compatibles de toutes ses dépendances (BOM)
+         et une configuration par défaut des plugins Maven. -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>ch.louhan.ged</groupId>
+    <artifactId>ged-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>GED - parent</name>
+
+    <properties>
+        <java.version>25</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <!-- Les modules sont ajoutés au fil des itérations (voir CLAUDE.md). -->
+    <modules>
+        <module>ged-api</module>
+    </modules>
+</project>

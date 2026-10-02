@@ -35,6 +35,7 @@ Une GED (gestion électronique des documents) pour les entreprises. Première ci
 | [docs/user-requirements.md](docs/user-requirements.md) | quoi, pour qui : exigences par profil, qualité perçue, parcours | `UR-xx`, `UQ-xx` |
 | [docs/technical-specifications.md](docs/technical-specifications.md) | comment : architecture, données, sécurité, pipeline, API, exigences non fonctionnelles, ADR | `AP-x`, `NFR-xx`, `TQ-x` |
 | [docs/stories.md](docs/stories.md) | backlog : itérations, user stories, tâches | `US-xx`, `Txx.n` |
+| [docs/conventions.md](docs/conventions.md) | **règles de code** : packages, injection, tests, Git, build. **À lire avant d'écrire du code.** | — |
 
 Traçabilité : `BR` → `UR` → `US` → `T`. Quand une itération change une décision, mettre à jour les spécifications techniques (et créer un ADR dans `docs/adr/` si la décision est structurante).
 
@@ -42,7 +43,7 @@ Traçabilité : `BR` → `UR` → `US` → `T`. Quand une itération change une 
 
 | Domaine | Choix |
 |---|---|
-| Backend | Java 21, Spring Boot 3.x, Maven multi-module (monolithe modulaire) |
+| Backend | **Java 25** (LTS), **Spring Boot 4.1**, Maven multi-module (monolithe modulaire), package `ch.louhan.ged` |
 | Base de données | PostgreSQL 16, Flyway, métadonnées en `JSONB` |
 | Binaires | Stockage objet S3 **sur site** : ODF/NooBaa sur OpenShift, MinIO en dev |
 | Recherche | OpenSearch, index derrière un alias |
@@ -302,6 +303,7 @@ Rituel de chaque itération :
 3. **Démo** : une commande ou un écran pour voir le résultat.
 4. **Explication** : visite guidée du code, choix faits, alternatives écartées.
 5. **Arrêt** : attendre la validation du product owner avant l'itération suivante.
+6. **Commit** : après validation, et seulement à ce moment-là, un commit par itération. Message : `Itération N : <titre> (US-xx)`.
 
 ### Les blocs
 
@@ -358,7 +360,7 @@ La V1 est décrite en **10 jalons (0 à 9)**, qui forment la **cible fonctionnel
 | # | Jalon | Technologies principales | Dépend de |
 |---|---|---|---|
 | 0 | Contrat d'API | OpenAPI 3.1, openapi-generator | — |
-| 1 | Squelette et infrastructure de dev | Maven, Spring Boot 3, Docker Compose, Keycloak, Helm | 0 |
+| 1 | Squelette et infrastructure de dev | Maven, Spring Boot 4, Docker Compose, Keycloak, Helm | 0 |
 | 2 | Moteur de schéma configurable | PostgreSQL JSONB, Flyway, Caffeine, OpenSearch mapping | 1 |
 | 3 | Socle documentaire | Spring Data JPA, S3 SDK (MinIO/ODF), Spring Security | 2 |
 | 4 | Pipeline d'ingestion et import massif | Kafka, Tika, Tesseract, ClamAV, Gotenberg, qpdf, **Spring Batch** | 3 |
@@ -389,7 +391,7 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 ### Jalon 1 : Squelette et infrastructure de dev
 
 - **Objectif** : un projet qui compile, démarre et se déploie, avec toute l'infrastructure disponible en local.
-- **Technologies** : Java 21, Spring Boot 3.x, Maven multi-module, Docker Compose, Keycloak, Helm, CI (pipeline interne).
+- **Technologies** : Java 25, Spring Boot 4.1, Maven multi-module, Docker Compose, Keycloak, Helm, CI (pipeline interne).
 - **Livrables** :
   - `pom.xml` parent et module `ged-api`. Les autres modules arrivent plus tard : `ged-web` (itération 14), `ged-core` et `ged-worker` (itération 16), `ged-importer` (itération 30) ;
   - `deploy/docker-compose.yml` avec PostgreSQL et Keycloak. Les autres services s'ajoutent quand une itération en a besoin : MinIO (6), Kafka (16), OpenSearch (18), Gotenberg (22), ClamAV (23), Ollama (24, ou pointage vers l'instance existante) ;
