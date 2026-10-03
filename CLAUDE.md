@@ -25,12 +25,13 @@ Une GED (gestion électronique des documents) pour les entreprises. Première ci
   - import massif.
 - **Hors V1** : la reprise de l'ancienne GED maison. L'import massif générique servira de base le jour où on la fera.
 
-État actuel : les itérations validées sont commitées sur `main` (un commit par itération, voir `git log`) ; le backlog coche les tâches terminées dans [docs/stories.md](docs/stories.md). Le travail avance itération par itération (voir « Développement itératif »).
+État actuel : **voir [docs/etat-du-projet.md](docs/etat-du-projet.md)** (itération en cours et suivante, points reportés, décisions en attente, pièges d'environnement). Les itérations validées sont commitées sur `main`, un commit par itération (`git log`), et le backlog coche les tâches terminées dans [docs/stories.md](docs/stories.md).
 
 ### Documentation de référence
 
 | Document | Contenu | Identifiants |
 |---|---|---|
+| [docs/etat-du-projet.md](docs/etat-du-projet.md) | **à lire en premier** : où on en est, prochaine étape, points reportés, décisions en attente, pièges d'environnement | — |
 | [docs/business-requirements.md](docs/business-requirements.md) | pourquoi : objectifs, périmètre, exigences métier, contraintes, risques | `BO-x`, `BR-xx`, `C-xx` |
 | [docs/user-requirements.md](docs/user-requirements.md) | quoi, pour qui : exigences par profil, qualité perçue, parcours | `UR-xx`, `UQ-xx` |
 | [docs/technical-specifications.md](docs/technical-specifications.md) | comment : architecture, données, sécurité, pipeline, API, exigences non fonctionnelles, ADR | `AP-x`, `NFR-xx`, `TQ-x` |
@@ -292,8 +293,25 @@ Une **corbeille** est la liste des documents qu'une personne ou un service **doi
 - `acl_entry` : principal (utilisateur ou groupe), ressource, permission READ/WRITE/DELETE/ADMIN
 - `retention_policy`, `legal_hold`, `legal_hold_document`
 - `audit_event` : append-only, partitionné par mois, avec chaînage de hash
+- `basket`, `basket_item`, `routing_rule` : corbeilles de travail et règles d'attribution
 - `outbox_event`
 - tables Flowable
+
+## Collaboration avec le product owner
+
+Ces règles s'appliquent à toute session de travail, locale ou sur claude.ai.
+
+- **Ton** : tutoyer le product owner et garder un ton détendu dans les échanges. Les documents du dépôt (`docs/`, ce fichier) gardent un ton neutre, car d'autres les liront.
+- **Profil** : environ 30 ans de Java, mais surtout de la gestion de projet ces dernières années. Habitudes du Spring « classique » (`@Autowired` sur les champs, interface + `Impl`…). Très fort sur le métier, les exigences et l'architecture. Il lit le code de près et remet les choix en question : toujours justifier une décision et citer les alternatives.
+- **Nouveautés Java et Spring** : les signaler au fil du code au format « **avant on faisait X, maintenant on fait Y, et voilà pourquoi** ». Format validé par le product owner.
+- **Ne pas réexpliquer les bases de Java.** Expliquer en revanche l'outillage moderne : génération de code, Maven, Testcontainers, Docker, Kubernetes/OpenShift, CI.
+- **Rythme** : une itération à la fois (voir « Développement itératif »). Ne jamais enchaîner deux itérations, ni en démarrer une sans son **feu vert explicite**.
+- **Git** :
+  - `git fetch` avant tout commit, car d'autres sessions peuvent pousser ;
+  - commit seulement après validation ;
+  - **push seulement sur demande** ;
+  - jamais de `push --force` sur `main`.
+- **En fin d'itération** : mettre à jour [docs/etat-du-projet.md](docs/etat-du-projet.md) dans le commit de l'itération.
 
 ## Règles à respecter
 
@@ -618,9 +636,9 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 
 ```bash
 docker compose -f deploy/docker-compose.yml up -d   # infrastructure de dev
-mvn verify                                          # build + tests (Testcontainers)
-mvn -pl ged-api spring-boot:run                     # API
-mvn -pl ged-worker spring-boot:run                  # worker
+./mvnw verify                                       # build + tests (Testcontainers, Docker requis)
+./mvnw -pl ged-api spring-boot:run                  # API
+./mvnw -pl ged-worker spring-boot:run               # worker (à partir de l'itération 19)
 cd ged-web && npm install && npm run dev            # frontend
 helm install ged deploy/helm/ged -n <namespace>     # déploiement OpenShift
 ```

@@ -144,6 +144,7 @@ Priorités : **M** = indispensable en V1 (*Must*), **S** = important (*Should*),
 - Un registre d'images et des miroirs de dépendances internes sont disponibles.
 - Un serveur SMTP interne est disponible pour les notifications.
 - La durée de conservation est de **20 ans pour tous les documents**.
+- **Organisation des documents : arborescence + métadonnées** (décision du product owner). Les dossiers servent au classement et aux droits, les métadonnées et la recherche à retrouver les documents, et les corbeilles au travail en cours. La notion métier de **« dossier assuré »** est portée par des **métadonnées** (n° AVS) et des vues de recherche, pas par l'arborescence.
 - Sur 20 ans, les originaux sont conservés **tels quels**, sans conversion en PDF/A (décision Q8). Un rendu PDF de prévisualisation existe pour chaque document.
 
 ## 10. Risques métier

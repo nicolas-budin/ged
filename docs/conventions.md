@@ -49,6 +49,13 @@ Pour chaque fonctionnalité (par exemple `api.folder`) :
 - **Une classe par fichier**, y compris les exceptions.
 - Les exceptions métier **héritent de `GedException`** (package `api.error`), avec un statut HTTP et un **code stable** en kebab-case : `super(HttpStatus.CONFLICT, "folder-not-empty", "…")`. Le code est documenté dans le contrat et ne change jamais.
 
+### Interfaces
+- **Pas d'interface pour les services métier** (`FolderService` est une classe, sans `FolderServiceImpl`). Spring n'en a plus besoin pour `@Transactional`, et Mockito sait simuler une classe. Une interface avec une seule implémentation n'apporte que du code à maintenir (principe YAGNI).
+- **Une interface uniquement** :
+  - pour **isoler une technologie remplaçable** : `ContentStorage` (S3), `DocumentClassifier` (Ollama, puis vLLM), `SearchIndex` (OpenSearch) ;
+  - ou quand il existe **réellement plusieurs implémentations**.
+- Les interfaces des controllers (`XxxApi`) sont **générées** depuis le contrat OpenAPI : c'est un cas à part.
+
 ### Validation
 - Les règles de validation de l'API (obligatoire, longueur, motif, bornes) sont écrites **dans le contrat** (`required`, `maxLength`, `pattern`, `minimum`…). Le générateur les traduit en annotations Jakarta Validation sur l'interface générée.
 - Les interfaces générées portent `@Validated`. Une violation lève alors `ConstraintViolationException`, que `ApiExceptionHandler` convertit en **400** (sans lui, ce serait un 500).

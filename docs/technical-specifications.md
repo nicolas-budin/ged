@@ -489,6 +489,7 @@ Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la lis
 | 0010 | Mode Object Lock | **décision attendue (T44.1)** |
 | 0011 | Spring Batch pour l'import massif | à rédiger (itération 33) |
 | 0012 | Corbeilles de travail sans droit implicite | à rédiger (itération 11) |
+| 0013 | Flyway plutôt que Liquibase | **acceptée** ([0013](adr/0013-flyway-plutot-que-liquibase.md)) |
 
 ## 19. Points ouverts techniques
 
