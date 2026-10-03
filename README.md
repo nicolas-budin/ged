@@ -21,11 +21,15 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 25)   # macOS, si nécessaire
 | Java | 25 | version LTS installée |
 | Spring Boot | 4.1.1 | dernière version stable ; compatible avec Flowable 8, Spring Batch 6 et Spring AI 2, prévus dans les itérations suivantes |
 
+Docker doit être démarré : PostgreSQL tourne dans un conteneur, en local comme pendant les tests (Testcontainers).
+
 ## Commandes
 
 ```bash
-./mvnw verify                              # compile et lance tous les tests
+docker compose -f deploy/docker-compose.yml up -d   # démarre PostgreSQL (port 5432)
+./mvnw verify                              # compile et lance tous les tests (Docker requis)
 ./mvnw -pl ged-api spring-boot:run         # démarre l'API sur http://localhost:8080
+docker compose -f deploy/docker-compose.yml down    # arrête PostgreSQL (ajouter -v pour effacer les données)
 ```
 
 ## Vérifier que l'API répond
@@ -33,6 +37,11 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 25)   # macOS, si nécessaire
 ```bash
 curl localhost:8080/api/v1/ping            # {"status":"ok","version":"0.1.0-SNAPSHOT"}
 curl localhost:8080/actuator/health        # {"status":"UP", ...}
+
+# Dossiers
+curl -X POST localhost:8080/api/v1/folders -H 'Content-Type: application/json' -d '{"name":"Comptabilité"}'
+curl localhost:8080/api/v1/folders                     # dossiers racines
+curl localhost:8080/api/v1/folders/<id>/children       # sous-dossiers (paginés : ?limit=&cursor=)
 ```
 
 ## Structure
@@ -40,6 +49,7 @@ curl localhost:8080/actuator/health        # {"status":"UP", ...}
 ```
 ged/
 ├─ pom.xml        # POM parent : versions Java et Spring Boot, liste des modules
+├─ deploy/        # docker-compose.yml (infrastructure locale)
 └─ ged-api/       # API REST (Spring Boot)
 ```
 

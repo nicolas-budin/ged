@@ -5,21 +5,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.web.servlet.MockMvc;
+
+import ch.louhan.ged.api.AbstractIntegrationTest;
 
 /**
  * Test d'intégration : démarre toute l'application Spring et appelle les endpoints
  * via MockMvc (sans ouvrir de vrai port réseau).
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-class PingControllerIT {
-
-    @Autowired
-    private MockMvc mockMvc;
+class PingControllerIT extends AbstractIntegrationTest {
 
     @Test
     void ping_renvoie_ok_et_la_version() throws Exception {
@@ -31,6 +24,7 @@ class PingControllerIT {
 
     @Test
     void health_renvoie_up() throws Exception {
+        // Depuis l'itération 2, le health check vérifie aussi la connexion à PostgreSQL.
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));

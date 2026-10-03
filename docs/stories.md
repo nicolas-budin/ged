@@ -63,14 +63,14 @@ Critères d'acceptation :
 Notes techniques : PostgreSQL 16, Flyway `V1__folders.sql`, Spring Data JPA, Testcontainers, `docker-compose.yml` (PostgreSQL seul).
 
 Tâches :
-- [ ] T02.1 Créer `deploy/docker-compose.yml` avec PostgreSQL 16
-- [ ] T02.2 Ajouter Flyway et écrire `V1__folders.sql` : table `folder` (id UUID, name, parent_id, created_at/by) et index unique (parent_id, name)
-- [ ] T02.3 Écrire l'entité JPA `Folder` et le `FolderRepository`
-- [ ] T02.4 Écrire `FolderService` : créer, renommer, supprimer (refuser si non vide), lister les enfants
-- [ ] T02.5 Implémenter la pagination par curseur (keyset sur `name, id`), avec encodage et décodage du curseur
-- [ ] T02.6 Écrire `FolderController` (CRUD + `/children`)
-- [ ] T02.7 Créer la base de test commune `AbstractIntegrationTest` (Testcontainers PostgreSQL)
-- [ ] T02.8 Écrire les tests : création, doublon → 409, suppression d'un dossier non vide → 409, pagination
+- [x] T02.1 Créer `deploy/docker-compose.yml` avec PostgreSQL 18
+- [x] T02.2 Ajouter Flyway et écrire `V1__folders.sql` : table `folder` (id UUID, name, parent_id, created_at) et contrainte unique `NULLS NOT DISTINCT` (parent_id, name) — `created_by` ajouté à l'itération 4 (authentification)
+- [x] T02.3 Écrire l'entité JPA `Folder` et le `FolderRepository`
+- [x] T02.4 Écrire `FolderService` : créer, renommer, supprimer (refuser si non vide), lister les enfants
+- [x] T02.5 Implémenter la pagination par curseur (keyset sur `name` seul, unique parmi les enfants d'un même parent), avec encodage et décodage du curseur
+- [x] T02.6 Écrire `FolderController` (CRUD + `/children`)
+- [x] T02.7 Créer la base de test commune `AbstractIntegrationTest` (Testcontainers PostgreSQL)
+- [x] T02.8 Écrire les tests : création, doublon → 409, suppression d'un dossier non vide → 409, pagination
 
 ### Itération 3 : Contrat d'abord
 

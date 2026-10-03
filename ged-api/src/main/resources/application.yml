@@ -2,6 +2,22 @@ spring:
   application:
     name: ged-api
 
+  # Connexion à PostgreSQL. Les valeurs par défaut correspondent à deploy/docker-compose.yml ;
+  # en recette/production elles sont fournies par des variables d'environnement (secrets OpenShift).
+  datasource:
+    url: ${GED_DB_URL:jdbc:postgresql://localhost:5432/ged}
+    username: ${GED_DB_USER:ged}
+    password: ${GED_DB_PASSWORD:ged}
+
+  jpa:
+    # Le schéma est géré UNIQUEMENT par Flyway. Hibernate se contente de vérifier
+    # que les entités Java correspondent aux tables (et refuse de démarrer sinon).
+    hibernate:
+      ddl-auto: validate
+    # Pas de requêtes SQL déclenchées pendant l'écriture de la réponse HTTP :
+    # tout accès à la base doit se faire dans les services.
+    open-in-view: false
+
 management:
   endpoints:
     web:

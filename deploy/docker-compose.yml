@@ -1,0 +1,25 @@
+# Infrastructure de développement local.
+# Les services sont ajoutés au fil des itérations (voir CLAUDE.md).
+#
+#   docker compose -f deploy/docker-compose.yml up -d     # démarrer
+#   docker compose -f deploy/docker-compose.yml down      # arrêter (les données restent)
+#   docker compose -f deploy/docker-compose.yml down -v   # arrêter ET effacer les données
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ged
+      POSTGRES_USER: ged
+      POSTGRES_PASSWORD: ged   # mot de passe de développement uniquement
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ged -d ged"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
