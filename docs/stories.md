@@ -61,7 +61,7 @@ Critères d'acceptation :
 - Deux dossiers frères ne peuvent pas porter le même nom : sinon, `409`.
 - Renommer et supprimer un dossier vide fonctionnent. Supprimer un dossier non vide renvoie `409`.
 
-Notes techniques : PostgreSQL 16, Flyway `V1__folders.sql`, Spring Data JPA, Testcontainers, `docker-compose.yml` (PostgreSQL seul).
+Notes techniques : PostgreSQL 18, Flyway `V1__folders.sql`, Spring Data JPA, Testcontainers, `docker-compose.yml` (PostgreSQL seul).
 
 Tâches :
 - [x] T02.1 Créer `deploy/docker-compose.yml` avec PostgreSQL 18

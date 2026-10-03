@@ -55,7 +55,7 @@ Ce document décrit la **solution cible** de la V1. Elle est construite **progre
 | `ged-worker` | Pipeline asynchrone | Spring Boot, Spring Kafka, Tika, Tesseract, client clamd, client Gotenberg, Spring AI | Deployment + HPA (lag Kafka) |
 | `ged-importer` | Import massif | Spring Batch | Job OpenShift (à la demande) |
 | `ged-core` | Domaine partagé (bibliothèque) | JPA, services, ports | — |
-| PostgreSQL 16 | Source de vérité | `JSONB`, `ltree`, partitionnement | Opérateur interne / service DBA |
+| PostgreSQL 18 | Source de vérité | `JSONB`, `ltree`, partitionnement | Opérateur interne / service DBA |
 | Stockage objet | Binaires, renditions, texte, archives | S3 : ODF/NooBaa (prod), MinIO (dev) | Plateforme |
 | OpenSearch | Recherche, facettes | OpenSearch 2.x | StatefulSet / opérateur |
 | Kafka | Bus d'événements | AMQ Streams (Strimzi) | Opérateur |

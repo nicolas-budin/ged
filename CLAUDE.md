@@ -25,7 +25,7 @@ Une GED (gestion électronique des documents) pour les entreprises. Première ci
   - import massif.
 - **Hors V1** : la reprise de l'ancienne GED maison. L'import massif générique servira de base le jour où on la fera.
 
-État actuel : le dépôt est vide, le travail commence à l'**itération 1** (voir « Développement itératif »).
+État actuel : les itérations validées sont commitées sur `main` (un commit par itération, voir `git log`) ; le backlog coche les tâches terminées dans [docs/stories.md](docs/stories.md). Le travail avance itération par itération (voir « Développement itératif »).
 
 ### Documentation de référence
 
@@ -44,7 +44,7 @@ Traçabilité : `BR` → `UR` → `US` → `T`. Quand une itération change une 
 | Domaine | Choix |
 |---|---|
 | Backend | **Java 25** (LTS), **Spring Boot 4.1**, Maven multi-module (monolithe modulaire), package `ch.louhan.ged` |
-| Base de données | PostgreSQL 16, Flyway, métadonnées en `JSONB` |
+| Base de données | PostgreSQL 18, Flyway, métadonnées en `JSONB` |
 | Binaires | Stockage objet S3 **sur site** : ODF/NooBaa sur OpenShift, MinIO en dev |
 | Recherche | OpenSearch, index derrière un alias |
 | Messagerie | Kafka (AMQ Streams), pattern outbox |
