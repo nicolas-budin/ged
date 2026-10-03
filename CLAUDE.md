@@ -35,6 +35,7 @@ Une GED (gestion électronique des documents) pour les entreprises. Première ci
 | [docs/user-requirements.md](docs/user-requirements.md) | quoi, pour qui : exigences par profil, qualité perçue, parcours | `UR-xx`, `UQ-xx` |
 | [docs/technical-specifications.md](docs/technical-specifications.md) | comment : architecture, données, sécurité, pipeline, API, exigences non fonctionnelles, ADR | `AP-x`, `NFR-xx`, `TQ-x` |
 | [docs/stories.md](docs/stories.md) | backlog : itérations, user stories, tâches | `US-xx`, `Txx.n` |
+| [docs/guides/openapi-swagger.md](docs/guides/openapi-swagger.md) | **guide** : comment fonctionnent le contrat OpenAPI, le code généré et Swagger UI ; marche à suivre pour modifier l'API | — |
 | [docs/conventions.md](docs/conventions.md) | **règles de code** : packages, injection, tests, Git, build. **À lire avant d'écrire du code.** | — |
 
 Traçabilité : `BR` → `UR` → `US` → `T`. Quand une itération change une décision, mettre à jour les spécifications techniques (et créer un ADR dans `docs/adr/` si la décision est structurante).
@@ -53,7 +54,7 @@ Traçabilité : `BR` → `UR` → `US` → `T`. Quand une itération change une 
 | Workflows | Flowable (embarqué) + modeleur bpmn-js |
 | IA | Ollama + **Gemma 4** interne via Spring AI, derrière `DocumentClassifier` |
 | Import massif | Spring Batch (`ged-importer`, Job OpenShift) |
-| API | OpenAPI 3.1, contrat d'abord, `openapi-generator` |
+| API | OpenAPI 3.0.3 (ADR 0001), contrat d'abord, `openapi-generator`, Swagger UI (springdoc), lint Spectral |
 | Auth | Keycloak (OIDC), JWT, comptes de service *client credentials* |
 | Frontend | React + TypeScript + Vite, TanStack Query, PDF.js, bpmn-js |
 | Déploiement | OpenShift **sur site**, Helm. docker-compose en dev |
@@ -383,7 +384,7 @@ La V1 est décrite en **10 jalons (0 à 9)**, qui forment la **cible fonctionnel
 
 | # | Jalon | Technologies principales | Dépend de |
 |---|---|---|---|
-| 0 | Contrat d'API | OpenAPI 3.1, openapi-generator | — |
+| 0 | Contrat d'API | OpenAPI 3.0.3, openapi-generator | — |
 | 1 | Squelette et infrastructure de dev | Maven, Spring Boot 4, Docker Compose, Keycloak, Helm | 0 |
 | 2 | Moteur de schéma configurable | PostgreSQL JSONB, Flyway, Caffeine, OpenSearch mapping | 1 |
 | 3 | Socle documentaire et corbeilles | Spring Data JPA, S3 SDK (MinIO/ODF), Spring Security | 2 |
@@ -399,7 +400,7 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 ### Jalon 0 : Contrat d'API
 
 - **Objectif** : l'API REST de la V1 est décrite par un contrat unique, partagé par le backend, le frontend et les intégrateurs. Le contrat est **écrit avant le code de chaque endpoint**, mais **progressivement** : démarré à l'itération 3, enrichi à chaque itération. La liste ci-dessous décrit son état final.
-- **Technologies** : OpenAPI 3.1, `openapi-generator-maven-plugin` (interfaces Spring) et `openapi-generator` côté TypeScript (client du frontend).
+- **Technologies** : OpenAPI 3.0.3, `openapi-generator-maven-plugin` (interfaces Spring) et `openapi-generator` côté TypeScript (client du frontend).
 - **Livrables** :
   - `ged-api/src/main/resources/openapi/ged-v1.yaml` : tous les domaines (schéma, dossiers, documents, fichiers, prévisualisation, recherche, workflows, tâches, IA, conformité, imports, webhooks) ;
   - modèles communs :

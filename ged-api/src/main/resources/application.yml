@@ -18,6 +18,17 @@ spring:
     # tout accès à la base doit se faire dans les services.
     open-in-view: false
 
+# Documentation interactive de l'API (Swagger UI embarqué, aucun CDN) : http://localhost:8080/api/docs
+# Elle affiche le contrat écrit à la main (ged-v1.yaml), et non une description déduite du code.
+springdoc:
+  # springdoc a besoin de sa description générée pour activer Swagger UI ; on la publie à une adresse
+  # technique, mais Swagger UI affiche le contrat (url ci-dessous), qui reste la seule référence.
+  api-docs:
+    path: /api/openapi/generated
+  swagger-ui:
+    path: /api/docs
+    url: /api/openapi/ged-v1.yaml
+
 management:
   endpoints:
     web:

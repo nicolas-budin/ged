@@ -3,13 +3,13 @@ package ch.louhan.ged.api.folder;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+
+import ch.louhan.ged.api.error.GedException;
 
 /** Le dossier demandé n'existe pas → 404. */
-@ResponseStatus(HttpStatus.NOT_FOUND)
-class FolderNotFoundException extends RuntimeException {
+class FolderNotFoundException extends GedException {
 
     FolderNotFoundException(UUID id) {
-        super("Dossier introuvable : " + id);
+        super(HttpStatus.NOT_FOUND, "folder-not-found", "Dossier introuvable : " + id);
     }
 }

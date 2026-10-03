@@ -1,13 +1,13 @@
 package ch.louhan.ged.api.folder;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+
+import ch.louhan.ged.api.error.GedException;
 
 /** Un dossier frère porte déjà ce nom → 409. */
-@ResponseStatus(HttpStatus.CONFLICT)
-class FolderNameAlreadyUsedException extends RuntimeException {
+class FolderNameAlreadyUsedException extends GedException {
 
     FolderNameAlreadyUsedException(String name) {
-        super("Un dossier nommé '" + name + "' existe déjà à cet endroit");
+        super(HttpStatus.CONFLICT, "folder-name-already-used", "Un dossier nommé '" + name + "' existe déjà à cet endroit");
     }
 }

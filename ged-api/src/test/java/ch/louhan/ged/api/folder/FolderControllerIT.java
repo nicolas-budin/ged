@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,6 +42,7 @@ class FolderControllerIT extends AbstractIntegrationTest {
                         .content("""
                                 {"name": "Comptabilité"}"""))
                 .andExpect(status().isCreated())
+                .andExpect(RESPECTE_LE_CONTRAT)
                 .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("/api/v1/folders/")))
                 .andExpect(jsonPath("$.name").value("Comptabilité"))
                 .andExpect(jsonPath("$.parentId").value(nullValue()));
@@ -53,6 +55,7 @@ class FolderControllerIT extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/v1/folders/{id}/children", parent))
                 .andExpect(status().isOk())
+                .andExpect(RESPECTE_LE_CONTRAT)
                 .andExpect(jsonPath("$.items[*].name", contains("Fournisseurs")))
                 .andExpect(jsonPath("$.nextCursor").value(nullValue()));
     }
@@ -64,7 +67,12 @@ class FolderControllerIT extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/folders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\": \"Contrats\", \"parentId\": \"" + parent + "\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(RESPECTE_LE_CONTRAT)
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.type").value("urn:ged:problem:folder-name-already-used"))
+                .andExpect(jsonPath("$.code").value("folder-name-already-used"))
+                .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test
@@ -88,7 +96,9 @@ class FolderControllerIT extends AbstractIntegrationTest {
     void creer_dans_un_parent_inexistant_renvoie_404() throws Exception {
         mockMvc.perform(post("/api/v1/folders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\": \"X\", \"parentId\": \"" + UUID.randomUUID() + "\"}"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(RESPECTE_LE_CONTRAT)
+                .andExpect(jsonPath("$.code").value("folder-not-found"));
     }
 
     @Test
@@ -96,7 +106,10 @@ class FolderControllerIT extends AbstractIntegrationTest {
         for (String name : new String[] {"", "   ", "a/b"}) {
             mockMvc.perform(post("/api/v1/folders").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"name\": \"" + name + "\"}"))
-                    .andExpect(status().isBadRequest());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentType("application/problem+json"))
+                    .andExpect(jsonPath("$.code").value("validation-failed"))
+                    .andExpect(jsonPath("$.errors[0].field").value("name"));
         }
     }
 
@@ -131,7 +144,10 @@ class FolderControllerIT extends AbstractIntegrationTest {
         UUID parent = create("Archives", null);
         create("2020", parent);
 
-        mockMvc.perform(delete("/api/v1/folders/{id}", parent)).andExpect(status().isConflict());
+        mockMvc.perform(delete("/api/v1/folders/{id}", parent))
+                .andExpect(status().isConflict())
+                .andExpect(RESPECTE_LE_CONTRAT)
+                .andExpect(jsonPath("$.code").value("folder-not-empty"));
     }
 
     @Test
@@ -160,9 +176,20 @@ class FolderControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void une_limite_hors_bornes_ou_un_curseur_invalide_renvoie_400() throws Exception {
-        mockMvc.perform(get("/api/v1/folders").param("limit", "500")).andExpect(status().isBadRequest());
-        mockMvc.perform(get("/api/v1/folders").param("cursor", "%%%")).andExpect(status().isBadRequest());
+    void une_limite_hors_bornes_un_curseur_ou_un_id_invalide_renvoient_400() throws Exception {
+        mockMvc.perform(get("/api/v1/folders").param("limit", "500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation-failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("limit"));
+        mockMvc.perform(get("/api/v1/folders").param("cursor", "%%%"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid-cursor"));
+        mockMvc.perform(get("/api/v1/folders/{id}", "pas-un-uuid"))
+                .andExpect(status().isBadRequest())
+                // Pas de RESPECTE_LE_CONTRAT ici : la requête est volontairement hors contrat.
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.type").value("urn:ged:problem:bad-request"))
+                .andExpect(jsonPath("$.code").value("bad-request"));
     }
 
     /** Crée un dossier via l'API et renvoie son identifiant. */

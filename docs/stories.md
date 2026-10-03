@@ -86,14 +86,14 @@ Critères d'acceptation :
 - Le lint du contrat (Spectral) passe dans la CI.
 
 Tâches :
-- [ ] T03.1 Écrire `ged-v1.yaml` : `info`, `servers`, `/ping`, `/folders`, schémas `Folder` et `Page`
-- [ ] T03.2 Définir le schéma `Problem` (RFC 9457) et les réponses d'erreur communes
-- [ ] T03.3 Configurer `openapi-generator-maven-plugin` (interfaces Spring uniquement, `interfaceOnly`, DTO générés)
-- [ ] T03.4 Faire implémenter l'interface générée par `FolderController`, et mapper entités ↔ DTO (MapStruct)
-- [ ] T03.5 Écrire le `@RestControllerAdvice` qui transforme les exceptions métier en `ProblemDetail`
-- [ ] T03.6 Servir Swagger UI et le YAML en local sur `/api/docs` (webjar, sans CDN)
-- [ ] T03.7 Ajouter le lint Spectral du contrat (règles + script CI)
-- [ ] T03.8 Écrire un test de contrat qui vérifie que les réponses respectent le schéma (validation OpenAPI dans les tests)
+- [x] T03.1 Écrire `ged-v1.yaml` (OpenAPI **3.0.3**, voir ADR 0001) : `info`, `servers`, `/ping`, `/folders`, schémas `Folder` et `FolderPage`
+- [x] T03.2 Définir le schéma `Problem` (RFC 9457) et les réponses d'erreur communes
+- [x] T03.3 Configurer `openapi-generator-maven-plugin` (interfaces Spring uniquement, `interfaceOnly`, DTO générés avec le suffixe `Dto`)
+- [x] T03.4 Faire implémenter l'interface générée par `FolderController`, et mapper entités ↔ DTO (méthodes `toDto` écrites à la main : MapStruct n'apporte rien pour si peu de champs)
+- [x] T03.5 Écrire le `@RestControllerAdvice` qui transforme les exceptions métier en `ProblemDetail`
+- [x] T03.6 Servir Swagger UI et le YAML en local sur `/api/docs` (springdoc, ressources embarquées, validateur en ligne désactivé)
+- [x] T03.7 Ajouter le lint Spectral du contrat (`.spectral.yaml` ; lancé avec `npx`, à brancher dans la CI à l'itération 5 via le miroir npm interne)
+- [x] T03.8 Écrire un test de contrat qui vérifie que les réponses respectent le schéma (validation OpenAPI dans les tests)
 
 ### Itération 4 : Sécurité
 

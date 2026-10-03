@@ -32,25 +32,28 @@ Les règles d'architecture (souveraineté, sécurité, volumétrie) sont dans [C
 - **Signal d'alerte** : un constructeur avec beaucoup de paramètres indique une classe qui en fait trop.
 
 ### Objets de données
-- Les réponses et requêtes simples sont des **records Java**, immuables. Par exemple, `PingResponse`.
-- À partir de l'itération 3, les objets échangés par l'API sont **générés depuis le contrat OpenAPI**. On ne les écrit plus à la main, et on ne modifie jamais le code généré.
+- Les objets échangés par l'API (JSON) sont **générés depuis le contrat OpenAPI**, avec le suffixe **`Dto`** (`FolderDto`, `CreateFolderRequestDto`), pour les distinguer des entités JPA (`Folder`). On ne les écrit pas à la main, et on ne modifie jamais le code généré (`target/generated-sources`, non committé).
+- Les objets internes simples (résultat d'un service, par exemple `FolderService.Page`) sont des **records Java**, immuables.
+- La conversion entité → DTO se fait dans le controller, avec des méthodes `toDto(...)` privées.
 
 ### Organisation d'une fonctionnalité
 Pour chaque fonctionnalité (par exemple `api.folder`) :
 
 | Classe | Rôle | Règle |
 |---|---|---|
-| `XxxController` | HTTP ⇄ Java : routes, validation de l'entrée, conversion en JSON | **aucune règle métier** |
+| `XxxController` | **implémente l'interface générée** `XxxApi` : appelle le service, convertit entité → DTO | **aucune règle métier, aucune annotation de route** (elles sont dans l'interface générée) |
 | `XxxService` | règles métier, transactions (`@Transactional`) | seul point d'entrée vers le repository |
 | `XxxRepository` | accès à la base (Spring Data) | requêtes de liste en `@Query` explicite |
 | `Xxx` | entité JPA | constructeur `protected` vide pour JPA ; pas de setters publics, mais des méthodes métier (`rename(…)`) |
 
 - **Une classe par fichier**, y compris les exceptions.
-- Les exceptions métier portent `@ResponseStatus` (404, 409, 400…). Elles passeront au format RFC 9457 à l'itération 3.
+- Les exceptions métier **héritent de `GedException`** (package `api.error`), avec un statut HTTP et un **code stable** en kebab-case : `super(HttpStatus.CONFLICT, "folder-not-empty", "…")`. Le code est documenté dans le contrat et ne change jamais.
 
 ### Validation
-- On valide avec Jakarta Validation (`@NotBlank`, `@Size`, `@Min`…) sur les records de requête et les paramètres.
-- **Ne pas mettre `@Validated` sur un controller** : Spring MVC valide déjà, et répond 400. `@Validated` activerait un autre mécanisme, qui répond 500.
+- Les règles de validation de l'API (obligatoire, longueur, motif, bornes) sont écrites **dans le contrat** (`required`, `maxLength`, `pattern`, `minimum`…). Le générateur les traduit en annotations Jakarta Validation sur l'interface générée.
+- Les interfaces générées portent `@Validated`. Une violation lève alors `ConstraintViolationException`, que `ApiExceptionHandler` convertit en **400** (sans lui, ce serait un 500).
+- **Ne pas ajouter `@Validated` sur nos propres classes** : ce serait redondant.
+- Les règles **métier** (nom déjà pris, dossier non vide…) restent dans les services.
 
 ### Commentaires
 - En **français**.
@@ -65,7 +68,12 @@ Pour chaque fonctionnalité (par exemple `api.folder`) :
 - **Listes : pagination par curseur (keyset), jamais `OFFSET`.** Le curseur est opaque pour le client (Base64), et on lit `limit + 1` lignes pour savoir s'il existe une page suivante.
 
 ## API REST
-- Toutes les routes publiques sont préfixées par **`/api/v1`**.
+- Comprendre le fonctionnement : [guide OpenAPI et Swagger](guides/openapi-swagger.md).
+- **Contrat d'abord** : toute évolution de l'API commence dans `ged-api/src/main/resources/openapi/ged-v1.yaml`, avant le code Java. Puis `./mvnw compile` régénère les interfaces, et on implémente.
+- Lint du contrat : `npx @stoplight/spectral-cli lint ged-api/src/main/resources/openapi/ged-v1.yaml` (règles dans `.spectral.yaml`) doit renvoyer **0 erreur**.
+- Dans le YAML, mettre entre guillemets toute valeur qui contient `: ` (deux-points + espace).
+- Toutes les routes publiques sont préfixées par **`/api/v1`** : préfixe ajouté une seule fois par `WebConfig` (les chemins du contrat sont relatifs : `/folders`).
+- **Erreurs : format RFC 9457** (`application/problem+json`), produit par `ApiExceptionHandler`. Toute erreur porte `type` (`urn:ged:problem:<code>`), `status`, `detail` et **`code`** ; les erreurs de validation ajoutent `errors: [{field, message}]`. Une erreur imprévue donne un 500 générique, sans détail technique pour le client.
 - Création : `201 Created` + en-tête `Location`. Suppression : `204 No Content`.
 - Listes : `{"items": [...], "nextCursor": "..." | null}`, avec les paramètres `limit` (1 à 200, 50 par défaut) et `cursor`.
 - Les endpoints techniques (`/actuator/*`) ne font pas partie de l'API publique. Seuls `health` et `info` sont exposés.
@@ -79,6 +87,7 @@ Pour chaque fonctionnalité (par exemple `api.folder`) :
 
 - Le test est placé **dans le même package** que la classe testée.
 - Les tests d'intégration héritent de **`AbstractIntegrationTest`** : application complète + PostgreSQL dans Testcontainers, avec un conteneur partagé par toute la suite.
+- **Tests de contrat** : sur toute requête valide, ajouter `.andExpect(RESPECTE_LE_CONTRAT)`, qui vérifie la requête **et** la réponse par rapport à `ged-v1.yaml` (code HTTP déclaré, JSON, format des erreurs). Ne pas l'utiliser sur une requête volontairement invalide : le validateur rejetterait la requête elle-même.
 - Chaque test part d'un **état connu** (`TRUNCATE` dans `@BeforeEach`). Un test ne dépend jamais d'un autre.
 - Les méthodes de test portent un **nom en français**, qui décrit le comportement attendu : `ping_renvoie_ok_et_la_version()`.
 - `./mvnw verify` doit passer avant toute validation d'itération.

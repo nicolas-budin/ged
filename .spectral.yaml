@@ -1,0 +1,8 @@
+# Règles de qualité du contrat OpenAPI (lint) : règles standard de Spectral pour OpenAPI.
+# Lancement : npx @stoplight/spectral-cli lint ged-api/src/main/resources/openapi/ged-v1.yaml
+extends: ["spectral:oas"]
+rules:
+  # Le contrat est interne à chaque installation : pas de contact ni de licence publique.
+  info-contact: off
+  info-license: off
+  license-url: off

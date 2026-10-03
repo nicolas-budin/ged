@@ -38,10 +38,21 @@ docker compose -f deploy/docker-compose.yml down    # arrête PostgreSQL (ajoute
 curl localhost:8080/api/v1/ping            # {"status":"ok","version":"0.1.0-SNAPSHOT"}
 curl localhost:8080/actuator/health        # {"status":"UP", ...}
 
+# Documentation interactive de l'API (Swagger UI, servie localement)
+open http://localhost:8080/api/docs
+
 # Dossiers
 curl -X POST localhost:8080/api/v1/folders -H 'Content-Type: application/json' -d '{"name":"Comptabilité"}'
 curl localhost:8080/api/v1/folders                     # dossiers racines
 curl localhost:8080/api/v1/folders/<id>/children       # sous-dossiers (paginés : ?limit=&cursor=)
+```
+
+## Contrat de l'API
+
+Le contrat [ged-v1.yaml](ged-api/src/main/resources/openapi/ged-v1.yaml) est la **source de vérité** de l'API : les interfaces Java des controllers et les objets JSON en sont générés à chaque build. Explications pas à pas : [guide OpenAPI et Swagger](docs/guides/openapi-swagger.md).
+
+```bash
+npx @stoplight/spectral-cli lint ged-api/src/main/resources/openapi/ged-v1.yaml   # lint du contrat
 ```
 
 ## Structure

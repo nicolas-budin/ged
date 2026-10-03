@@ -1,0 +1,334 @@
+# Contrat de l'API REST de la GED : SOURCE DE VÉRITÉ.
+# Toute évolution de l'API commence ici, AVANT le code Java.
+# Les interfaces des controllers et les objets JSON (DTO) sont générés à partir de ce fichier
+# au build (openapi-generator) : ne jamais modifier le code généré à la main.
+openapi: 3.0.3
+info:
+  title: GED — API
+  version: "1"
+  description: |
+    API publique de la GED. Toutes les routes sont préfixées par `/api/v1`.
+
+    **Erreurs** : format RFC 9457 (`application/problem+json`). Le champ `code` est stable et
+    peut être utilisé par les applications clientes ; `errors` détaille les erreurs de validation.
+
+    **Listes** : pagination par curseur. Renvoyer `nextCursor` tel quel dans le paramètre `cursor`
+    pour obtenir la page suivante ; `nextCursor` vaut `null` sur la dernière page.
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Ping
+    description: Vérifier que l'API répond.
+  - name: Folders
+    description: Dossiers (arborescence de classement).
+
+paths:
+  /ping:
+    get:
+      tags: [Ping]
+      operationId: ping
+      summary: Vérifier que l'API répond et connaître sa version
+      description: "Ne nécessite aucune dépendance (base, stockage) : répond dès que l'application tourne. Pour la santé complète, l'exploitation utilise `/actuator/health`."
+      responses:
+        "200":
+          description: L'API répond.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+
+  /folders:
+    get:
+      tags: [Folders]
+      operationId: listRootFolders
+      summary: Lister les dossiers racines
+      description: "Dossiers sans parent, triés par nom. Pagination par curseur : renvoyer `nextCursor` dans `cursor` pour la page suivante."
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Une page de dossiers racines, triés par nom.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [Folders]
+      operationId: createFolder
+      summary: Créer un dossier (racine, ou sous-dossier si parentId est fourni)
+      description: "Le nom est débarrassé de ses espaces de début et de fin. Deux dossiers ayant le même parent ne peuvent pas porter le même nom (`409 folder-name-already-used`). Un `parentId` inconnu donne `404 folder-not-found`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFolderRequest"
+      responses:
+        "201":
+          description: Dossier créé.
+          headers:
+            Location:
+              description: Adresse du nouveau dossier.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /folders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/FolderId"
+    get:
+      tags: [Folders]
+      operationId: getFolder
+      summary: Lire un dossier
+      description: "Renvoie le dossier, ou `404 folder-not-found`."
+      responses:
+        "200":
+          description: Le dossier.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Folders]
+      operationId: renameFolder
+      summary: Renommer un dossier
+      description: "Mêmes règles de nom qu'à la création ; renommer avec le nom actuel ne change rien."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameFolderRequest"
+      responses:
+        "200":
+          description: Le dossier renommé.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Folders]
+      operationId: deleteFolder
+      summary: Supprimer un dossier vide
+      description: "Un dossier qui contient encore des sous-dossiers ne peut pas être supprimé (`409 folder-not-empty`)."
+      responses:
+        "204":
+          description: Dossier supprimé.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /folders/{id}/children:
+    parameters:
+      - $ref: "#/components/parameters/FolderId"
+    get:
+      tags: [Folders]
+      operationId: listChildFolders
+      summary: Lister les sous-dossiers
+      description: "Sous-dossiers directs du dossier `id`, triés par nom, avec pagination par curseur. `404 folder-not-found` si le dossier n'existe pas."
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Une page de sous-dossiers, triés par nom.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    FolderId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant du dossier.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Curseur opaque renvoyé dans `nextCursor` par la page précédente.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Nombre maximal d'éléments par page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  schemas:
+    PingResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+          example: 0.1.0-SNAPSHOT
+
+    FolderName:
+      description: >-
+        Nom de dossier : au moins un caractère autre qu'un espace ; sans « / » ni « \ »
+        (séparateurs de chemin).
+      type: string
+      minLength: 1
+      maxLength: 255
+      # Lecture : des caractères quelconques sauf / et \, dont AU MOINS UN qui n'est pas un espace (\s).
+      pattern: '^[^/\\]*[^/\\\s][^/\\]*$'
+      example: Comptabilité
+
+    Folder:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Dossier parent ; `null` pour un dossier racine.
+        createdAt:
+          type: string
+          format: date-time
+
+    FolderPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Folder"
+        nextCursor:
+          type: string
+          nullable: true
+          description: À renvoyer dans `cursor` pour la page suivante ; `null` sur la dernière page.
+
+    CreateFolderRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/FolderName"
+        parentId:
+          type: string
+          format: uuid
+          description: Dossier parent ; absent pour créer un dossier racine.
+
+    RenameFolderRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/FolderName"
+
+    Problem:
+      description: Erreur au format RFC 9457 (Problem Details for HTTP APIs).
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          description: Identifiant du type d'erreur (`urn:ged:problem:<code>`).
+          example: "urn:ged:problem:folder-name-already-used"
+        title:
+          type: string
+          example: Conflict
+        status:
+          type: integer
+          format: int32
+          example: 409
+        detail:
+          type: string
+          example: Un dossier nommé 'Contrats' existe déjà à cet endroit
+        instance:
+          type: string
+          example: /api/v1/folders
+        code:
+          type: string
+          description: Code d'erreur stable, utilisable par les applications clientes.
+          example: folder-name-already-used
+        errors:
+          type: array
+          description: Détail des erreurs de validation, champ par champ.
+          items:
+            $ref: "#/components/schemas/FieldError"
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          example: name
+        message:
+          type: string
+          example: ne doit pas être vide
+
+  responses:
+    BadRequest:
+      description: Requête invalide (validation, paramètre ou curseur incorrect).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Ressource introuvable.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: Conflit avec l'état actuel (doublon, dossier non vide…).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

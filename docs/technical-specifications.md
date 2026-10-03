@@ -365,7 +365,7 @@ Les propriétés sous `meta` sont **ajoutées par `MappingSynchronizer`** (`PUT 
 
 | Sujet | Règle |
 |---|---|
-| Contrat | `ged-api/src/main/resources/openapi/ged-v1.yaml` (OpenAPI 3.1), lint Spectral, code serveur et client TS générés |
+| Contrat | `ged-api/src/main/resources/openapi/ged-v1.yaml` (OpenAPI 3.0.3, ADR 0001), lint Spectral, code serveur et client TS générés |
 | Version | préfixe `/api/v1` ; aucun changement cassant dans une version publiée |
 | Format | JSON (UTF-8) ; dates ISO 8601 UTC |
 | Erreurs | RFC 9457 `application/problem+json`, avec `type` stable et `errors[]` pour la validation |
@@ -477,7 +477,7 @@ Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la lis
 
 | ADR | Décision | Statut |
 |---|---|---|
-| 0001 | Contrat d'abord (OpenAPI, code généré) | à rédiger (itération 3) |
+| 0001 | Contrat d'abord (OpenAPI 3.0.3, code généré) | **acceptée** ([0001](adr/0001-contrat-d-abord.md)) |
 | 0002 | Aucune sortie réseau (NetworkPolicy, pas de CDN) | à rédiger (itération 5) |
 | 0003 | Stockage adressé par contenu (SHA-256) | à rédiger (itération 7) |
 | 0004 | Métadonnées en JSONB pilotées par le schéma | à rédiger (itération 12) |
