@@ -60,8 +60,9 @@ Il ne décrit ni le fonctionnement détaillé des écrans (voir [Exigences utili
 - Recherche plein texte (y compris les documents scannés, grâce à l'OCR) et **recherche à facettes**
 - **Prévisualisation** des PDF, Word et autres formats bureautiques dans le navigateur
 - **Classification et indexation automatiques** par une IA hébergée sur place
+- **Corbeilles de travail** personnelles et de groupe (département), avec tri du courrier entrant et règles d'attribution automatiques
 - **Workflows de validation** : 6 circuits fournis, et un éditeur pour en créer d'autres
-- **Conformité** : durées de conservation, legal hold, corbeille, archivage inaltérable, journal d'audit
+- **Conformité** : durées de conservation, legal hold, éléments supprimés (restaurables), archivage inaltérable, journal d'audit
 - **Droits d'accès** par utilisateur et par groupe, avec authentification unique (SSO) d'entreprise
 - **API REST** publique pour les applications tierces
 - **Import massif** de lots de documents
@@ -81,6 +82,7 @@ Il ne décrit ni le fonctionnement détaillé des écrans (voir [Exigences utili
 | Direction / sponsor | Retour sur investissement, conformité, maîtrise des risques |
 | Utilisateurs métier (comptabilité, RH, juridique, achats…) | Retrouver et déposer rapidement, moins de saisie |
 | Valideurs / managers | Traiter les validations simplement, sans retard |
+| Service courrier | Numériser et répartir rapidement le courrier entrant dans les bonnes corbeilles |
 | Administrateurs fonctionnels | Adapter la GED sans dépendre des développeurs |
 | Responsable conformité / DPO | Conservation légale, traçabilité, confidentialité |
 | DSI / exploitation | Exploitation sur OpenShift, sécurité, performance, intégration au SI |
@@ -115,6 +117,7 @@ Priorités : **M** = indispensable en V1 (*Must*), **S** = important (*Should*),
 | **BR-20** | Les documents confidentiels doivent pouvoir être consultés avec un filigrane identifiant le lecteur. | C | BO-4 |
 | **BR-21** | Les données sensibles (santé, assurances sociales) doivent être protégées conformément à la nLPD et au secret des assurances sociales : accès limité au besoin d'en connaître, chiffrement, journalisation des consultations. | M | BO-4, BO-5 |
 | **BR-22** | La GED doit être remise en service en **6 heures au maximum** après un sinistre. | M | BO-4 |
+| **BR-23** | Chaque collaborateur doit disposer d'une **corbeille de travail** où il voit les documents à traiter, et chaque département ou groupe de **ses propres corbeilles**. Un document peut être dans plusieurs corbeilles. Il y arrive par le tri du courrier, par des règles automatiques, par transmission ou par une étape de workflow, et il en sort une fois traité. Une corbeille ne donne aucun droit d'accès : les droits du dossier priment. | M | BO-1, BO-3 |
 
 ## 8. Contraintes
 

@@ -1,6 +1,6 @@
 # Backlog V1 — User stories par itération
 
-Ce backlog découpe la V1 en 33 itérations, regroupées en 10 blocs (A à J). Il complète la section « Plan de mise en place » de [CLAUDE.md](../CLAUDE.md).
+Ce backlog découpe la V1 en 36 itérations, regroupées en 10 blocs (A à J). Il complète la section « Plan de mise en place » de [CLAUDE.md](../CLAUDE.md).
 
 ## Personas
 
@@ -9,6 +9,7 @@ Ce backlog découpe la V1 en 33 itérations, regroupées en 10 blocs (A à J). I
 | **Utilisateur** | dépose, consulte et recherche des documents |
 | **Administrateur fonctionnel** | configure classes, champs, référentiels, workflows, droits |
 | **Valideur** | traite les tâches de workflow |
+| **Service courrier** | numérise le courrier entrant et le répartit dans les corbeilles des services |
 | **Responsable conformité** | gère la rétention, les legal holds et l'audit |
 | **Intégrateur** | connecte une application tierce (ERP, scanner) par l'API |
 | **Exploitant** | déploie et surveille la GED sur OpenShift |
@@ -313,11 +314,66 @@ Tâches :
 - [ ] T15.4 Écrire `AuditVerifier`, qui recalcule la chaîne sur une période
 - [ ] T15.5 Écrire le test : altération d'une ligne (en contournant le trigger dans le test) → vérification en échec
 
+### Itération 11 : Corbeilles de travail
+
+Une **corbeille** est la liste des documents qu'une personne ou un service doit traiter. Ce n'est pas la corbeille des documents supprimés, appelée « éléments supprimés » (US-43). Chaque utilisateur a sa corbeille personnelle, et chaque groupe ou département peut avoir plusieurs corbeilles. Un document peut être dans plusieurs corbeilles. **Une corbeille ne donne aucun droit** : ce sont les droits du dossier qui s'appliquent.
+
+**US-53 — Disposer de corbeilles personnelles et de groupe** · M
+> En tant qu'**utilisateur**, je veux voir ma corbeille et celles de mes groupes, avec le nombre d'éléments à traiter, afin de savoir ce que j'ai à faire.
+
+Critères d'acceptation :
+- Chaque utilisateur a une corbeille personnelle, créée automatiquement à sa première connexion.
+- Un administrateur crée, renomme (libellés fr/de/en) et désactive les corbeilles d'un groupe Keycloak. Un groupe peut en avoir plusieurs.
+- `GET /baskets` renvoie ma corbeille personnelle et celles de mes groupes, avec les compteurs « à traiter » et « en cours ».
+- `GET /baskets/{id}/items` liste le contenu (statut, source, date, échéance, priorité), avec pagination par curseur et filtre par statut.
+- Une corbeille d'un groupe dont je ne suis pas membre renvoie `404`.
+
+Tâches :
+- [ ] T53.1 Migration : tables `basket` (type USER/GROUP, propriétaire, code, libellés, actif) et `basket_item` (document, type ACTION/INFO, statut TODO/IN_PROGRESS/DONE, source, pris par, déposé par, dates, échéance, priorité, commentaire, tâche de workflow)
+- [ ] T53.2 Index unique partiel (`basket_id`, `document_id`) WHERE `status <> 'DONE'`, et index de pagination (`basket_id`, `status`, `assigned_at`, `id`)
+- [ ] T53.3 Créer la corbeille personnelle à la première connexion (ou au premier appel)
+- [ ] T53.4 CRUD des corbeilles de groupe (rôle `ged-admin`)
+- [ ] T53.5 Écrire `GET /baskets` (mes corbeilles + compteurs) et `GET /baskets/{id}/items` (curseur, filtre de statut)
+- [ ] T53.6 Mettre à jour `ged-v1.yaml`
+- [ ] T53.7 Écrire les tests : corbeille personnelle créée, appartenance au groupe, pagination
+
+**US-54 — Déposer, transmettre et traiter un document dans une corbeille** · L
+> En tant qu'**utilisateur**, je veux déposer un document dans une corbeille, le prendre, le transmettre, l'envoyer en copie et le marquer comme traité, afin d'organiser le travail entre collègues et services.
+
+Critères d'acceptation :
+- **Déposer** (`POST /baskets/{id}/items`) : pour action ou en copie pour information, avec commentaire, échéance et priorité facultatifs.
+- **Prendre** (`POST /basket-items/{id}/claim`) un élément d'une corbeille de groupe : il passe « en cours » et les autres membres voient qui le traite.
+- **Transmettre** (`/transfer`) : l'élément est clos ici et créé dans la corbeille cible.
+- **Copier** (`/copy`) : un élément « pour information » est ajouté dans une autre corbeille, et l'original reste.
+- **Marquer traité** (`/done`) : l'élément sort de la corbeille. Le document reste dans son dossier et dans la recherche.
+- Un document peut être actif dans **plusieurs** corbeilles, mais une seule fois dans la même corbeille (sinon `409`).
+- Toutes les actions sont auditées, et l'historique de passage d'un document dans les corbeilles est consultable.
+
+Tâches :
+- [ ] T54.1 Écrire `BasketService` : déposer, prendre, transmettre, copier, marquer traité (transitions de statut contrôlées)
+- [ ] T54.2 Écrire les endpoints `/baskets/{id}/items` et `/basket-items/{id}/claim|transfer|copy|done`
+- [ ] T54.3 Gérer la concurrence : deux membres qui prennent le même élément → un seul gagne (verrou optimiste)
+- [ ] T54.4 Auditer chaque action, et écrire `GET /documents/{id}/basket-history`
+- [ ] T54.5 Écrire les tests : cycle complet, doublon → 409, prise concurrente
+
+**US-55 — Respecter les droits du dossier dans les corbeilles** · M
+> En tant que **responsable conformité**, je veux qu'une corbeille ne donne jamais accès à un document que son destinataire n'a pas le droit de lire, afin de respecter le besoin d'en connaître (nLPD).
+
+Critères d'acceptation :
+- Déposer un document dans la corbeille d'une personne ou d'un groupe qui n'a pas le droit READ sur ce document est **refusé** (`422`, avec un message explicite).
+- Le contenu d'une corbeille est **filtré par les ACL dans la requête** : si les droits sont retirés plus tard, le document n'apparaît plus.
+- Les compteurs ne comptent que les documents lisibles.
+
+Tâches :
+- [ ] T55.1 Vérifier le droit READ du destinataire (utilisateur, ou groupe) au dépôt, au transfert et à la copie, via `PermissionService`
+- [ ] T55.2 Joindre le filtre ACL aux requêtes de liste et de compteurs des corbeilles (SQL, pas de filtrage en mémoire)
+- [ ] T55.3 Écrire les tests : dépôt refusé sans droit, élément masqué après retrait du droit, compteurs exacts
+
 ---
 
 ## C. Schéma configurable
 
-### Itération 11 : Classes et champs
+### Itération 12 : Classes et champs
 
 **US-16 — Créer une classe de documents avec ses champs** · L
 > En tant qu'**administrateur fonctionnel**, je veux créer une classe de documents (ex. « Facture ») et ses champs d'indexation, sans faire appel aux développeurs, afin d'adapter la GED à mon entreprise.
@@ -351,7 +407,7 @@ Tâches :
 - [ ] T17.4 Écrire `PATCH /documents/{id}/metadata` (JSON Merge Patch)
 - [ ] T17.5 Écrire les tests paramétrés sur chaque type de champ et chaque contrainte
 
-### Itération 12 : Référentiels et héritage
+### Itération 13 : Référentiels et héritage
 
 **US-18 — Proposer des listes de valeurs** · M
 > En tant qu'**administrateur fonctionnel**, je veux définir des listes de valeurs (ex. fournisseurs, services) afin que les utilisateurs choisissent au lieu de saisir.
@@ -382,7 +438,7 @@ Tâches :
 - [ ] T19.4 Écrire `JsonSchemaGenerator` → `GET /classes/{id}/json-schema`
 - [ ] T19.5 Écrire les tests : héritage sur 3 niveaux, surcharge de « obligatoire », JSON Schema conforme
 
-### Itération 13 : Versionnage et export
+### Itération 14 : Versionnage et export
 
 **US-20 — Transporter la configuration entre environnements** · M
 > En tant qu'**administrateur fonctionnel**, je veux exporter la configuration de recette et l'importer en production afin de ne pas tout ressaisir.
@@ -400,11 +456,30 @@ Tâches :
 - [ ] T20.5 Écrire `GET /schema/export` et `POST /schema/import?dryRun=`
 - [ ] T20.6 Écrire le test aller-retour : export → import sur base vierge → export identique
 
+### Itération 15 : Règles d'attribution automatique
+
+**US-56 — Répartir automatiquement les documents dans les corbeilles** · M
+> En tant qu'**administrateur fonctionnel**, je veux définir des règles qui déposent automatiquement un document dans la bonne corbeille selon sa classe et ses champs, afin de ne pas tout répartir à la main.
+
+Critères d'acceptation :
+- Une règle = classe de documents + conditions sur des champs (égal, contient, supérieur à…) → corbeille cible, pour action ou en copie.
+- Les règles sont ordonnées, et on peut les activer ou les désactiver. Elles s'évaluent quand un document est créé ou que sa classe ou ses métadonnées changent, y compris après une proposition de l'IA acceptée.
+- Une règle qui vise une corbeille dont le destinataire n'a pas le droit READ ne dépose rien. Elle produit une **alerte d'administration**.
+- Le schéma YAML exporté inclut les règles (US-20).
+
+Tâches :
+- [ ] T56.1 Migration : table `routing_rule` (position, classe, conditions JSONB, corbeille cible, type, actif)
+- [ ] T56.2 Écrire `RoutingRuleEngine` : évaluation des conditions sur `metadata`, avec les types de champs du schéma
+- [ ] T56.3 Déclencher l'évaluation à la création ou à la modification de la classe ou des métadonnées (source `RULE`)
+- [ ] T56.4 Écrire le CRUD `/routing-rules` (rôle `ged-admin`), un test « à blanc » d'une règle sur un document, et les alertes
+- [ ] T56.5 Inclure les règles dans l'export/import YAML
+- [ ] T56.6 Écrire les tests : règle simple, règles multiples (plusieurs corbeilles), destinataire sans droit → alerte
+
 ---
 
 ## D. Premier frontend
 
-### Itération 14 : Squelette et navigation
+### Itération 16 : Squelette et navigation
 
 **US-21 — Naviguer dans les dossiers et déposer des fichiers** · L
 > En tant qu'**utilisateur**, je veux naviguer dans l'arborescence et déposer des fichiers par glisser-déposer afin d'utiliser la GED sans outil technique.
@@ -428,7 +503,7 @@ Tâches :
 - [ ] T21.9 Servir `ged-web` (Nginx UBI dans le chart Helm)
 - [ ] T21.10 Écrire les tests de composants (Vitest + Testing Library)
 
-### Itération 15 : Formulaires générés
+### Itération 17 : Formulaires générés
 
 **US-22 — Saisir l'indexation avec un formulaire adapté à la classe** · M
 > En tant qu'**utilisateur**, je veux un formulaire qui affiche exactement les champs de la classe choisie afin de saisir rapidement les bonnes informations.
@@ -455,11 +530,29 @@ Tâches :
 - [ ] T23.4 Écrire l'écran export/import YAML, avec aperçu du diff
 - [ ] T23.5 Masquer l'administration aux utilisateurs sans `ged-admin`
 
+### Itération 18 : Écrans des corbeilles et tri du courrier entrant
+
+**US-57 — Travailler depuis ma corbeille et trier le courrier entrant** · L
+> En tant qu'**utilisateur** et que **service courrier**, je veux un écran « Ma corbeille » et un écran de tri du courrier entrant, afin de traiter et de répartir les documents sans outil technique.
+
+Critères d'acceptation :
+- **Écran d'accueil = ma corbeille** : mes éléments et ceux de mes corbeilles de groupe, triables par date, échéance et priorité, avec un filtre par statut. Les éléments en retard sont signalés.
+- Depuis un élément : ouvrir le document, prendre, transmettre (choix de la personne ou de la corbeille), copier, marquer traité, avec commentaire.
+- **Écran de tri** pour le service courrier : les documents numérisés arrivent dans une corbeille « Courrier entrant ». Pour chacun, on choisit la classe et la ou les corbeilles destinataires, en un minimum de clics. Les règles automatiques (US-56) proposent une destination.
+- Seuls les destinataires autorisés à lire le document sont proposés.
+
+Tâches :
+- [ ] T57.1 Écrire la page « Ma corbeille » (liste paginée, filtres, compteurs dans le menu)
+- [ ] T57.2 Écrire les actions sur un élément (prendre, transmettre, copier, traiter), avec un sélecteur de destinataire filtré par les droits
+- [ ] T57.3 Écrire l'écran de tri du courrier entrant (enchaînement document suivant, raccourcis clavier, proposition des règles)
+- [ ] T57.4 Signaler les échéances dépassées
+- [ ] T57.5 Écrire les tests de composants (Vitest + Testing Library)
+
 ---
 
 ## E. Pipeline et recherche
 
-### Itération 16 : Traitements asynchrones
+### Itération 19 : Traitements asynchrones
 
 **US-24 — Traiter les documents en arrière-plan** · L
 > En tant qu'**utilisateur**, je veux que mon dépôt soit immédiat, même si des traitements longs suivent, afin de ne pas attendre.
@@ -482,7 +575,7 @@ Tâches :
 - [ ] T24.9 Ajouter `ged-worker` au chart Helm (Deployment séparé)
 - [ ] T24.10 Écrire les tests : Kafka arrêté → pas de perte, message en erreur → DLQ
 
-### Itération 17 : Texte et OCR
+### Itération 20 : Texte et OCR
 
 **US-25 — Extraire le texte des documents** · M
 > En tant qu'**utilisateur**, je veux que le texte de mes documents soit extrait, y compris pour les scans, afin de pouvoir y chercher des mots.
@@ -501,7 +594,7 @@ Tâches :
 - [ ] T25.6 Paramétrer les langues OCR, le DPI et le délai maximal
 - [ ] T25.7 Écrire les tests avec un PDF texte, un scan et un `.docx` en fixtures
 
-### Itération 18 : Recherche plein texte
+### Itération 21 : Recherche plein texte
 
 **US-26 — Rechercher un document par son contenu** · M
 > En tant qu'**utilisateur**, je veux taper des mots et retrouver les documents qui les contiennent afin de ne plus fouiller les dossiers.
@@ -519,7 +612,7 @@ Tâches :
 - [ ] T26.5 Mettre à jour `ged-v1.yaml` (requête et réponse de recherche)
 - [ ] T26.6 Écrire le test : un scan est retrouvé par un mot OCRisé
 
-### Itération 19 : Facettes et sécurité de la recherche
+### Itération 22 : Facettes et sécurité de la recherche
 
 **US-27 — Affiner une recherche avec des facettes** · L
 > En tant qu'**utilisateur**, je veux filtrer les résultats par classe, date, fournisseur… avec le nombre de documents pour chaque valeur, afin de trouver vite parmi des millions de documents.
@@ -550,7 +643,7 @@ Tâches :
 - [ ] T28.3 Écrire l'événement `acl.changed`, qui réindexe les documents concernés (sous-arbre d'un dossier : `update_by_query` par lots)
 - [ ] T28.4 Écrire les tests : un document interdit n'apparaît ni dans les résultats ni dans les compteurs
 
-### Itération 20 : Changement de schéma
+### Itération 23 : Changement de schéma
 
 **US-29 — Modifier un champ sans casser la recherche** · M
 > En tant qu'**administrateur fonctionnel**, je veux pouvoir changer le type d'un champ afin de corriger une erreur de configuration.
@@ -566,7 +659,7 @@ Tâches :
 - [ ] T29.3 Suivre l'avancement (`GET /admin/reindex/{id}`) et produire le rapport des valeurs non convertibles
 - [ ] T29.4 Écrire le test : changement texte → date, avec la recherche disponible pendant la réindexation
 
-### Itération 21 : Écran de recherche
+### Itération 24 : Écran de recherche
 
 **US-30 — Rechercher depuis l'interface** · M
 > En tant qu'**utilisateur**, je veux un écran de recherche avec facettes cliquables afin de chercher sans connaître l'API.
@@ -582,7 +675,7 @@ Tâches :
 - [ ] T30.3 Écrire les colonnes dynamiques et le tri
 - [ ] T30.4 Synchroniser les critères dans l'URL (partage de recherche)
 
-### Itération 22 : Prévisualisation
+### Itération 25 : Prévisualisation
 
 **US-31 — Prévisualiser un document dans le navigateur** · L
 > En tant qu'**utilisateur**, je veux voir un PDF ou un document Word directement dans la GED afin de ne pas avoir à le télécharger.
@@ -614,7 +707,7 @@ Tâches :
 - [ ] T32.2 Dessiner le filigrane dans la visionneuse (calque canvas au-dessus de chaque page)
 - [ ] T32.3 Exposer l'information de filigrane dans `/preview`
 
-### Itération 23 : Antivirus
+### Itération 26 : Antivirus
 
 **US-33 — Bloquer les fichiers infectés** · M
 > En tant qu'**exploitant**, je veux que chaque fichier soit analysé par un antivirus avant tout traitement afin de protéger les postes des utilisateurs.
@@ -635,7 +728,7 @@ Tâches :
 
 ## F. IA
 
-### Itération 24 : Classification locale
+### Itération 27 : Classification locale
 
 **US-34 — Pré-remplir automatiquement l'indexation** · L
 > En tant qu'**utilisateur**, je veux que la GED propose la classe et remplisse les champs d'un document déposé afin de gagner du temps de saisie.
@@ -675,7 +768,7 @@ Tâches :
 
 ## G. Workflows
 
-### Itération 25 : Premier circuit
+### Itération 28 : Premier circuit
 
 **US-36 — Soumettre un document à validation** · L
 > En tant qu'**utilisateur**, je veux qu'une facture déposée parte automatiquement en validation afin qu'elle soit approuvée par la bonne personne.
@@ -684,6 +777,7 @@ Critères d'acceptation :
 - Flowable est embarqué. Le modèle « Validation simple » est fourni.
 - Il s'affecte à une classe de documents, avec son groupe valideur et son délai.
 - Le dépôt d'un document de cette classe démarre le circuit.
+- Chaque tâche de validation **apparaît dans la corbeille** du valideur ou du groupe valideur (élément de source `WORKFLOW`).
 
 Tâches :
 - [ ] T36.1 Ajouter `flowable-spring-boot-starter-process` à `ged-api` (tables gérées par Flowable)
@@ -693,14 +787,14 @@ Tâches :
 - [ ] T36.5 Écrire `/workflow-templates` et l'affectation à une classe
 
 **US-37 — Traiter mes tâches de validation** · M
-> En tant que **valideur**, je veux voir mes tâches et approuver, rejeter avec un commentaire ou déléguer afin de traiter les validations rapidement.
+> En tant que **valideur**, je veux traiter mes tâches de validation depuis ma corbeille (approuver, rejeter avec un commentaire ou déléguer) afin d'avoir un seul endroit pour tout mon travail.
 
 Critères d'acceptation :
 - `GET /tasks` liste mes tâches et celles de mes groupes.
 - `POST /tasks/{id}/complete` approuve ou rejette. Un rejet renvoie le document au déposant, avec le commentaire.
 - Notification par email (SMTP interne) et relance quand le délai est dépassé.
 - Chaque étape est auditée.
-- Écran « Mes tâches » dans le frontend.
+- Les tâches sont des **éléments de corbeille** : approuver ou rejeter depuis la corbeille complète la tâche Flowable et sort l'élément de la corbeille. Il n'y a pas d'écran « Mes tâches » séparé.
 
 Tâches :
 - [ ] T37.1 Écrire `GET /tasks` (candidat ou assigné), `POST /tasks/{id}/claim|complete|delegate`
@@ -708,10 +802,10 @@ Tâches :
 - [ ] T37.3 Configurer les notifications email (Spring Mail, SMTP interne, modèles Thymeleaf)
 - [ ] T37.4 Écrire les timers d'escalade (relance et réaffectation)
 - [ ] T37.5 Écrire un `ExecutionListener` qui audite chaque transition
-- [ ] T37.6 Écrire l'écran frontend « Mes tâches » et l'action depuis la fiche document
+- [ ] T37.6 Synchroniser tâches Flowable et éléments de corbeille (création, prise = claim, fin de tâche = élément traité), avec les actions approuver et rejeter dans l'écran « Ma corbeille »
 - [ ] T37.7 Écrire le test de bout en bout : dépôt → tâche → approbation → statut « Validé »
 
-### Itération 26 : Workflows sûrs et modèles par défaut
+### Itération 29 : Workflows sûrs et modèles par défaut
 
 **US-38 — Disposer de workflows prêts à l'emploi** · M
 > En tant qu'**administrateur fonctionnel**, je veux des circuits standards prêts à l'emploi afin de démarrer sans rien dessiner.
@@ -746,7 +840,7 @@ Tâches :
 - [ ] T39.3 Restreindre le contexte d'expressions de Flowable (aucun accès aux beans en dehors de la liste blanche)
 - [ ] T39.4 Écrire les tests : script task → 422, delegate inconnu → 422, champ inexistant → 422
 
-### Itération 27 : Éditeur de workflows
+### Itération 30 : Éditeur de workflows
 
 **US-40 — Dessiner mes propres circuits** · L
 > En tant qu'**administrateur fonctionnel**, je veux dessiner un circuit de validation dans un éditeur graphique afin de reproduire nos processus internes.
@@ -767,7 +861,7 @@ Tâches :
 
 ## H. Conformité
 
-### Itération 28 : Rétention et corbeille
+### Itération 31 : Rétention, éléments supprimés et legal hold
 
 **US-41 — Appliquer automatiquement les durées de conservation** · L
 > En tant que **responsable conformité**, je veux définir une durée de conservation par classe afin que les documents soient supprimés ou archivés à l'échéance légale.
@@ -792,18 +886,18 @@ Critères d'acceptation :
 Tâches :
 - [ ] T42.1 Migration : tables `legal_hold` et `legal_hold_document`
 - [ ] T42.2 Écrire `/legal-holds` : créer, ajouter des documents (liste, dossier, requête de recherche), lever
-- [ ] T42.3 Vérifier le hold dans **toutes** les voies de suppression (API, rétention, corbeille)
+- [ ] T42.3 Vérifier le hold dans **toutes** les voies de suppression (API, rétention, éléments supprimés)
 - [ ] T42.4 Écrire les tests : un administrateur ne peut pas supprimer, et la rétention saute le document
 
 **US-43 — Restaurer un document supprimé par erreur** · S
-> En tant qu'**utilisateur**, je veux une corbeille afin de récupérer un document supprimé par erreur.
+> En tant qu'**utilisateur**, je veux retrouver mes **éléments supprimés** afin de récupérer un document supprimé par erreur. (À ne pas confondre avec les corbeilles de travail, US-53.)
 
 Tâches :
 - [ ] T43.1 Mettre en place la suppression logique (`deleted_at`) et l'exclusion des listes et de la recherche
 - [ ] T43.2 Écrire `/trash` : lister, restaurer, purger (droit DELETE), avec purge automatique après N jours
-- [ ] T43.3 Écrire l'écran corbeille dans le frontend
+- [ ] T43.3 Écrire l'écran « Éléments supprimés » dans le frontend
 
-### Itération 29 : Archivage et preuve
+### Itération 32 : Archivage et preuve
 
 **US-44 — Archiver de façon inaltérable** · M
 > En tant que **responsable conformité**, je veux que les documents archivés soient techniquement impossibles à modifier ou supprimer afin d'avoir une valeur probante.
@@ -835,7 +929,7 @@ Tâches :
 
 ## I. Import massif
 
-### Itération 30 : Import simple
+### Itération 33 : Import simple
 
 **US-46 — Importer un lot de documents** · L
 > En tant qu'**administrateur fonctionnel**, je veux importer un lot de documents décrit par un fichier CSV afin de charger de gros volumes sans dépôt manuel.
@@ -857,7 +951,7 @@ Tâches :
 - [ ] T46.7 Écrire `POST /imports` (lance un Job OpenShift ou un lancement local en dev) et `GET /imports/{id}`
 - [ ] T46.8 Écrire le test : 1 000 lignes, arrêt au milieu, redémarrage → aucun doublon
 
-### Itération 31 : Import de millions de documents
+### Itération 34 : Import de millions de documents
 
 **US-47 — Importer des millions de documents sans gêner les utilisateurs** · L
 > En tant qu'**exploitant**, je veux importer des millions de documents en parallèle sans ralentir les utilisateurs afin de charger un stock existant.
@@ -896,7 +990,7 @@ Tâches :
 
 ## J. Intégration et durcissement
 
-### Itération 32 : Robustesse de l'API
+### Itération 35 : Robustesse de l'API
 
 **US-49 — Rejouer un appel sans créer de doublon** · M
 > En tant qu'**intégrateur**, je veux pouvoir relancer un appel après une coupure réseau sans créer de doublon afin que mon intégration soit fiable.
@@ -935,7 +1029,7 @@ Tâches :
 - [ ] T51.4 Écrire `GET /webhooks/{id}/deliveries` et le rejeu manuel
 - [ ] T51.5 Écrire le test avec un récepteur WireMock : vérification de la signature
 
-### Itération 33 : Performance
+### Itération 36 : Performance
 
 **US-52 — Garantir les performances à grande échelle** · L
 > En tant qu'**exploitant**, je veux mesurer les performances sur un volume réaliste afin de dimensionner la plateforme avant la mise en production.

@@ -178,6 +178,27 @@ C'est le cœur fonctionnel : formulaires, recherche, IA, workflows et rétention
 - **Confort** : surlignage des termes recherchés, et filigrane facultatif par classe (utilisateur, date, « Confidentiel »).
 - **API** : `GET /documents/{id}/preview` renvoie l'URL, le nombre de pages et le statut (`READY`, `PENDING` ou `UNSUPPORTED`).
 
+## Corbeilles de travail
+
+Une **corbeille** est la liste des documents qu'une personne ou un service **doit traiter**. C'est le point d'entrée quotidien des utilisateurs. À ne pas confondre avec les **éléments supprimés**, la corbeille au sens « poubelle ».
+
+- **Corbeille personnelle** pour chaque utilisateur, créée à sa première connexion. **Corbeilles de groupe** : chaque groupe ou département Keycloak peut en avoir plusieurs, configurées par l'administrateur (ex. « AI — Courrier entrant », « AI — Recours »).
+- **Un document peut être dans plusieurs corbeilles** : pour action ou en copie pour information. Il n'est actif qu'une fois par corbeille.
+- **Arrivée** dans une corbeille :
+  - tri du courrier entrant par le service courrier ;
+  - **règles d'attribution automatiques** (classe + conditions sur les champs, y compris après une proposition de l'IA) ;
+  - transmission manuelle ;
+  - **étape de workflow**.
+- **Actions** : déposer, prendre (corbeille de groupe), transmettre, copier pour information, marquer traité. Une fois traité, le document **quitte la corbeille** et reste classé dans son dossier.
+- **Coexistence** : les **dossiers** servent au classement définitif et aux droits, les **corbeilles** au travail en cours.
+- **Une corbeille ne donne aucun droit.** Les droits du dossier priment :
+  - on ne peut déposer un document que chez un destinataire qui a déjà READ, sinon `422` ;
+  - une règle qui vise un destinataire sans droit ne fait rien et produit une alerte ;
+  - les listes de corbeille sont filtrées par ACL **dans la requête**.
+- **Workflows** : chaque tâche Flowable est un **élément de corbeille** (source `WORKFLOW`). Il n'y a pas de « boîte de tâches » séparée : **ma corbeille = tout mon travail**.
+- **Modèle** : `basket` (USER | GROUP), `basket_item` (ACTION | INFO, TODO | IN_PROGRESS | DONE, source MAIL_SORTING | RULE | MANUAL | WORKFLOW), `routing_rule`.
+- **API** : `/baskets`, `/baskets/{id}/items`, `/basket-items/{id}/claim|transfer|copy|done`, `/routing-rules`.
+
 ## Workflows de validation
 
 - **Éditeur** : modeleur **bpmn-js** dans l'administration.
@@ -193,7 +214,7 @@ C'est le cœur fonctionnel : formulaires, recherche, IA, workflows et rétention
 - **Cycle de vie** : brouillon, puis publication, ce qui crée une nouvelle version. Les instances en cours restent sur leur version d'origine.
 - **Affectation** : un circuit s'affecte à une classe de documents, en déclenchement automatique ou manuel.
 - **Exécution côté utilisateur** :
-  - boîte de tâches : approuver, rejeter avec commentaire, déléguer ;
+  - les tâches arrivent dans la **corbeille** du valideur ou du groupe : approuver, rejeter avec commentaire, déléguer ;
   - timers d'escalade ;
   - vue graphique de l'instance ;
   - un `audit_event` par transition.
@@ -231,6 +252,7 @@ C'est le cœur fonctionnel : formulaires, recherche, IA, workflows et rétention
 - **Domaines** :
   - schéma, avec `GET /classes/{id}/json-schema` qui donne le schéma exact des métadonnées d'une classe ;
   - dossiers, documents, versions ;
+  - **corbeilles** (`/baskets`, `/basket-items`) et règles d'attribution (`/routing-rules`) ;
   - fichiers : upload multipart présigné, envoi direct en flux jusqu'à 100 Mo, téléchargement par redirection 302 vers une URL présignée, miniature, texte, prévisualisation ;
   - recherche (`POST /search`) ;
   - workflows et tâches ;
@@ -279,6 +301,7 @@ C'est le cœur fonctionnel : formulaires, recherche, IA, workflows et rétention
   - Les objets sont adressés par leur SHA-256.
 - **Pagination par keyset ou curseur**, jamais `OFFSET`.
 - **Droits dans la recherche** : les principaux autorisés sont indexés dans OpenSearch et filtrés dans la requête. On ne filtre jamais les résultats après coup.
+- **Une corbeille ne donne aucun droit** : un dépôt dans une corbeille exige que le destinataire ait déjà READ, et les listes de corbeille sont filtrées par ACL dans la requête.
 - **Cohérence entre la base et Kafka** : on passe toujours par l'outbox. Les erreurs vont en DLQ, avec rejeu possible.
 - **Audit** : toute action métier, d'administration, de schéma, de workflow ou de consultation produit un `audit_event`, jamais modifié ni supprimé.
 - **Conformité** :
@@ -295,7 +318,7 @@ C'est le cœur fonctionnel : formulaires, recherche, IA, workflows et rétention
 
 ## Développement itératif (à respecter)
 
-Le product owner doit **comprendre le code produit**. On avance donc par **petites itérations verticales** : chaque itération traverse toutes les couches (base, service, API, test) sur une seule fonctionnalité. Le backlog complet, soit 33 itérations et 52 user stories, est dans [docs/stories.md](docs/stories.md).
+Le product owner doit **comprendre le code produit**. On avance donc par **petites itérations verticales** : chaque itération traverse toutes les couches (base, service, API, test) sur une seule fonctionnalité. Le backlog complet, soit 36 itérations et 57 user stories, est dans [docs/stories.md](docs/stories.md).
 
 Rituel de chaque itération :
 1. **Annonce** : stories visées, notion nouvelle, fichiers touchés.
@@ -310,17 +333,17 @@ Rituel de chaque itération :
 | Bloc | Itérations | Contenu |
 |---|---|---|
 | **A. Fondations** | 1–5 | Hello GED, PostgreSQL + Flyway, contrat OpenAPI, Keycloak, **premier déploiement OpenShift dès l'itération 5** |
-| **B. Documents** | 6–10 | dépôt vers MinIO, versions + empreinte SHA-256, upload présigné, droits d'accès, audit infalsifiable |
-| **C. Schéma configurable** | 11–13 | classes, champs, validation, listes de valeurs, export YAML |
-| **D. Premier frontend** | 14–15 | React + connexion Keycloak, formulaire d'indexation **généré** depuis le schéma |
-| **E. Pipeline et recherche** | 16–23 | Kafka, OCR, OpenSearch, facettes, prévisualisation Word/PDF, antivirus |
-| **F. IA** | 24 | Gemma 4 + file de revue humaine |
-| **G. Workflows** | 25–27 | Flowable, 6 workflows par défaut, éditeur bpmn-js |
-| **H. Conformité** | 28–29 | rétention, legal hold, archivage verrouillé |
-| **I. Import massif** | 30–31 | Spring Batch : d'abord simple, puis en parallèle sur plusieurs pods |
-| **J. Durcissement** | 32–33 | robustesse de l'API, tests de charge |
+| **B. Documents et corbeilles** | 6–11 | dépôt vers MinIO, versions + empreinte SHA-256, upload présigné, droits d'accès, audit infalsifiable, **corbeilles de travail** |
+| **C. Schéma configurable** | 12–15 | classes, champs, validation, listes de valeurs, export YAML, **règles d'attribution aux corbeilles** |
+| **D. Premier frontend** | 16–18 | React + connexion Keycloak, formulaire d'indexation **généré** depuis le schéma, **écran « Ma corbeille » et tri du courrier entrant** |
+| **E. Pipeline et recherche** | 19–26 | Kafka, OCR, OpenSearch, facettes, prévisualisation Word/PDF, antivirus |
+| **F. IA** | 27 | Gemma 4 + file de revue humaine |
+| **G. Workflows** | 28–30 | Flowable (tâches = éléments de corbeille), 6 workflows par défaut, éditeur bpmn-js |
+| **H. Conformité** | 31–32 | rétention, éléments supprimés, legal hold, archivage verrouillé |
+| **I. Import massif** | 33–34 | Spring Batch : d'abord simple, puis en parallèle sur plusieurs pods |
+| **J. Durcissement** | 35–36 | robustesse de l'API, tests de charge |
 
-Le contrat `ged-v1.yaml` et les modules Maven **grandissent au fil des itérations**. Un module n'est créé que lorsqu'on en a besoin : `ged-worker` arrive avec Kafka (itération 16) et `ged-importer` avec Spring Batch (itération 30). Le docker-compose et le chart Helm s'enrichissent de la même façon, un service à la fois.
+Le contrat `ged-v1.yaml` et les modules Maven **grandissent au fil des itérations**. Un module n'est créé que lorsqu'on en a besoin : `ged-worker` arrive avec Kafka (itération 19) et `ged-importer` avec Spring Batch (itération 33). Le docker-compose et le chart Helm s'enrichissent de la même façon, un service à la fois.
 
 ### Jalons et blocs : quel lien ?
 
@@ -334,20 +357,21 @@ Livrer tous les blocs revient à atteindre tous les jalons, mais le découpage n
 |---|---|
 | **0. Contrat d'API** | **réparti** : démarré à l'itération 3, puis enrichi à chaque itération qui touche l'API |
 | **1. Squelette et infrastructure** | **bloc A** (itérations 1, 2, 4, 5) |
-| **2. Moteur de schéma** | **bloc C** (11–13) |
-| **3. Socle documentaire** | **bloc B** (6–10) |
-| **4. Pipeline d'ingestion et import massif** | **bloc E** (16, 17, 22, 23) pour le pipeline, et **bloc I** (30–31) pour l'import Spring Batch |
-| **5. Recherche** | **bloc E** (18–21) |
-| **6. Classification IA** | **bloc F** (24) |
-| **7. Workflows** | **bloc G** (25–27) |
-| **8. Conformité** | **bloc H** (28–29) |
-| **9. Frontend** | **réparti** : bloc D (14–15) pour la base, puis un écran ajouté dans chaque bloc suivant (recherche en 21, visionneuse en 22, revue IA en 24, tâches en 25, modeleur en 27, conformité en 28–29, imports en 31) |
-| *(pas de jalon dédié)* | **bloc J** (32–33) : robustesse de l'API et performance, issues des jalons 0 et 3 et de la section « Vérification » |
+| **2. Moteur de schéma** | **bloc C** (12–14), plus les règles d'attribution (15) |
+| **3. Socle documentaire** | **bloc B** (6–10), plus les **corbeilles** (11) |
+| **4. Pipeline d'ingestion et import massif** | **bloc E** (19, 20, 25, 26) pour le pipeline, et **bloc I** (33–34) pour l'import Spring Batch |
+| **5. Recherche** | **bloc E** (21–24) |
+| **6. Classification IA** | **bloc F** (27) |
+| **7. Workflows** | **bloc G** (28–30) |
+| **8. Conformité** | **bloc H** (31–32) |
+| **9. Frontend** | **réparti** : bloc D (16–18) pour la base et les corbeilles, puis un écran ajouté dans chaque bloc suivant (recherche en 24, visionneuse en 25, revue IA en 27, actions de workflow dans la corbeille en 28, modeleur en 30, conformité en 31–32, imports en 34) |
+| *(pas de jalon dédié)* | **bloc J** (35–36) : robustesse de l'API et performance, issues des jalons 0 et 3 et de la section « Vérification » |
 
 Les écarts avec l'ordre des jalons sont volontaires :
 1. **Les documents passent avant le schéma** (bloc B avant C, alors que le jalon 3 suit le 2). On apprend d'abord à stocker un fichier, puis on ajoute les champs configurables par-dessus.
 2. **Le contrat d'API et le frontend sont répartis** sur toutes les itérations, au lieu d'avoir un jalon chacun. On n'écrit pas 30 endpoints d'un coup, ni tous les écrans à la fin.
 3. **L'import massif est séparé du pipeline et placé à la fin** (bloc I). Il a besoin que tout le reste existe : schéma, pipeline, indexation et audit.
+4. **Les corbeilles** (exigence ajoutée après le démarrage) sont réparties dans trois blocs : le modèle et l'API juste après les droits et l'audit (11), les règles d'attribution après le schéma (15), les écrans avec le premier frontend (18).
 
 ## Plan de mise en place de la V1
 
@@ -362,7 +386,7 @@ La V1 est décrite en **10 jalons (0 à 9)**, qui forment la **cible fonctionnel
 | 0 | Contrat d'API | OpenAPI 3.1, openapi-generator | — |
 | 1 | Squelette et infrastructure de dev | Maven, Spring Boot 4, Docker Compose, Keycloak, Helm | 0 |
 | 2 | Moteur de schéma configurable | PostgreSQL JSONB, Flyway, Caffeine, OpenSearch mapping | 1 |
-| 3 | Socle documentaire | Spring Data JPA, S3 SDK (MinIO/ODF), Spring Security | 2 |
+| 3 | Socle documentaire et corbeilles | Spring Data JPA, S3 SDK (MinIO/ODF), Spring Security | 2 |
 | 4 | Pipeline d'ingestion et import massif | Kafka, Tika, Tesseract, ClamAV, Gotenberg, qpdf, **Spring Batch** | 3 |
 | 5 | Recherche | OpenSearch (requêtes, agrégations, highlight) | 4 |
 | 6 | Classification IA | Spring AI, Ollama, Gemma 4 | 4 |
@@ -393,8 +417,8 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 - **Objectif** : un projet qui compile, démarre et se déploie, avec toute l'infrastructure disponible en local.
 - **Technologies** : Java 25, Spring Boot 4.1, Maven multi-module, Docker Compose, Keycloak, Helm, CI (pipeline interne).
 - **Livrables** :
-  - `pom.xml` parent et module `ged-api`. Les autres modules arrivent plus tard : `ged-web` (itération 14), `ged-core` et `ged-worker` (itération 16), `ged-importer` (itération 30) ;
-  - `deploy/docker-compose.yml` avec PostgreSQL et Keycloak. Les autres services s'ajoutent quand une itération en a besoin : MinIO (6), Kafka (16), OpenSearch (18), Gotenberg (22), ClamAV (23), Ollama (24, ou pointage vers l'instance existante) ;
+  - `pom.xml` parent et module `ged-api`. Les autres modules arrivent plus tard : `ged-web` (itération 16), `ged-core` et `ged-worker` (itération 19), `ged-importer` (itération 33) ;
+  - `deploy/docker-compose.yml` avec PostgreSQL et Keycloak. Les autres services s'ajoutent quand une itération en a besoin : MinIO (6), Kafka (19), OpenSearch (21), Gotenberg (25), ClamAV (26), Ollama (27, ou pointage vers l'instance existante) ;
   - `deploy/keycloak/realm-ged.json` : realm de dev, avec utilisateurs, groupes et client `ged-web` + compte de service de test ;
   - sécurité de base : `ged-api` en resource server JWT, endpoint `/actuator/health` ;
   - base Testcontainers réutilisable pour les tests d'intégration ;
@@ -429,7 +453,7 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 
 ### Jalon 3 : Socle documentaire
 
-- **Objectif** : déposer, ranger, versionner et sécuriser des documents.
+- **Objectif** : déposer, ranger, versionner et sécuriser des documents, et organiser le travail en **corbeilles**.
 - **Technologies** :
   - Spring Data JPA, AWS SDK v2 S3 (compatible MinIO/ODF) ;
   - URL présignées, multipart upload ;
@@ -445,11 +469,13 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
     - stockage par SHA-256, avec déduplication ;
   - concurrence optimiste (`ETag`), `Idempotency-Key`, pagination keyset ;
   - service d'audit append-only, avec un événement par action ;
+  - **corbeilles de travail** : `basket`, `basket_item`, corbeilles personnelles et de groupe, déposer/prendre/transmettre/copier/traiter, contrôle READ du destinataire, et **règles d'attribution** (`routing_rule`) une fois le schéma disponible ;
   - quotas par client (Bucket4j).
 - **Terminé quand** :
   - un document de 2 Go se dépose par upload présigné ;
   - un utilisateur sans droit reçoit un `403` ;
-  - chaque action apparaît dans l'audit, et la chaîne de hash se vérifie.
+  - chaque action apparaît dans l'audit, et la chaîne de hash se vérifie ;
+  - un document transmis apparaît dans la corbeille du destinataire, et un dépôt vers un destinataire sans droit est refusé.
 
 ### Jalon 4 : Pipeline d'ingestion et import massif
 
@@ -546,7 +572,7 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
     - relecture et publication ;
     - prise de connaissance ;
   - ces modèles sont protégés, duplicables et paramétrables à l'affectation ;
-  - boîte de tâches (approuver, rejeter, déléguer), timers d'escalade, notifications email, un `audit_event` par transition ;
+  - tâches présentées comme **éléments de corbeille** (approuver, rejeter, déléguer), timers d'escalade, notifications email, un `audit_event` par transition ;
   - endpoints `/workflow-definitions`, `/workflow-templates`, `/tasks`, `/process-instances`.
 - **Terminé quand** :
   - un circuit « montant > 5 000 € » suit le bon chemin ;
@@ -560,7 +586,7 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
 - **Livrables** :
   - `retention_policy` par classe : durée, action (supprimer ou archiver), job planifié ;
   - legal hold : pose, levée, blocage de toute suppression ;
-  - corbeille avec restauration et purge ;
+  - **éléments supprimés** (suppression logique) avec restauration et purge ;
   - archivage avec Object Lock ;
   - export de l'audit et vérification de la chaîne de hash (`GET /audit`) ;
   - partitions froides de l'audit archivées vers S3.
@@ -579,12 +605,12 @@ La colonne « Dépend de » indique les **dépendances techniques** entre domain
   - authentification OIDC (Keycloak).
 - **Livrables, ajoutés au fil des jalons** :
   - **après le jalon 2** : administration des classes, champs et référentiels ; formulaires d'indexation **générés** à partir de `/schema` ;
-  - **après le jalon 3** : navigation dans les dossiers, upload par glisser-déposer, fiche document, versions, ACL ;
+  - **après le jalon 3** : **écran d'accueil « Ma corbeille »** et corbeilles de groupe, écran de **tri du courrier entrant**, navigation dans les dossiers, upload par glisser-déposer, fiche document, versions, ACL ;
   - **après le jalon 4** : visionneuse PDF.js (chargement progressif par Range, filigrane facultatif), suivi des imports ;
   - **après le jalon 5** : recherche à facettes, surlignage des termes jusque dans la visionneuse ;
   - **après le jalon 6** : file de revue IA ;
-  - **après le jalon 7** : boîte de tâches, modeleur BPMN, vue graphique d'une instance ;
-  - **après le jalon 8** : rétention, legal hold, corbeille, consultation de l'audit.
+  - **après le jalon 7** : actions de workflow dans « Ma corbeille », modeleur BPMN, vue graphique d'une instance ;
+  - **après le jalon 8** : rétention, legal hold, éléments supprimés, consultation de l'audit.
 - **Terminé quand** : le scénario de bout en bout (voir « Vérification ») se déroule entièrement dans l'interface, et une capture réseau ne montre aucun appel externe.
 
 ## Commandes (une fois le squelette en place)

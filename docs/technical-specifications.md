@@ -106,6 +106,9 @@ Le domaine expose des **ports** (interfaces), implémentés par des adaptateurs.
 | `retention_policy` | `id`, `duration`, `start_from` (dépôt ou champ date), `action` (DELETE/ARCHIVE) | |
 | `legal_hold` / `legal_hold_document` | `id`, `name`, `reason`, `created_by`, `released_at` | |
 | `classification_review` | `document_id`, `proposal jsonb`, `confidence`, `status` | |
+| `basket` | `id`, `type` (USER/GROUP), `owner_principal`, `code`, `labels jsonb`, `active` | corbeille personnelle créée à la première connexion |
+| `basket_item` | `id`, `basket_id`, `document_id`, `kind` (ACTION/INFO), `status` (TODO/IN_PROGRESS/DONE), `source` (MAIL_SORTING/RULE/MANUAL/WORKFLOW), `claimed_by`, `assigned_by`, `assigned_at`, `due_at`, `priority`, `comment`, `done_at/by`, `workflow_task_id`, `version` | index unique partiel (`basket_id`, `document_id`) WHERE `status <> 'DONE'` ; index (`basket_id`, `status`, `assigned_at`, `id`) |
+| `routing_rule` | `id`, `position`, `class_id`, `conditions jsonb`, `target_basket_id`, `kind`, `active` | |
 | `workflow_assignment` | `class_id`, `process_definition_key`, `parameters jsonb`, `trigger` | |
 | `idempotency_key` | `key`, `client_id`, `request_hash`, `response`, `expires_at` | |
 | `webhook` / `webhook_delivery` | URL, secret, événements, statut, tentatives | |
@@ -116,7 +119,7 @@ Le domaine expose des **ports** (interfaces), implémentés par des adaptateurs.
 - **Migrations** : uniquement par Flyway, en ajout uniquement ; une migration appliquée n'est jamais modifiée.
 - **Identifiants** : UUID (v7 de préférence, pour la localité d'index).
 - **Pagination** : keyset ou curseur exclusivement (jamais `OFFSET`).
-- **Suppression** : logique (`deleted_at`), puis purge physique par la corbeille ou la rétention, sauf legal hold.
+- **Suppression** : logique (`deleted_at`), puis purge physique depuis les éléments supprimés ou par la rétention, sauf legal hold.
 - **Audit** :
   - l'utilisateur applicatif n'a pas les droits `UPDATE`/`DELETE` sur `audit_event` ;
   - un trigger refuse ces opérations ;
@@ -165,7 +168,7 @@ Le domaine expose des **ports** (interfaces), implémentés par des adaptateurs.
 - **Dimensionnement pour 50 M de documents** :
   - hypothèse de ~5 Ko de texte indexé par document, soit **~250 à 400 Go** d'index primaire ;
   - viser des shards de 20 à 40 Go, soit **~10 à 16 shards primaires** et 1 réplica, sur au moins 3 nœuds de données ;
-  - valeurs à confirmer par les tests de charge (itération 33) ;
+  - valeurs à confirmer par les tests de charge (itération 36) ;
   - l'alias permet de passer plus tard à plusieurs index (par exemple par période) sans changer l'application.
 
 ### 6.2 Mapping
@@ -279,6 +282,10 @@ Les propriétés sous `meta` sont **ajoutées par `MappingSynchronizer`** (`PUT 
 - **Sans droit READ** : `404`, ce qui ne révèle pas l'existence du document. **Sans droit WRITE ou DELETE** : `403`.
 - **Recherche** : filtre `allowed_principals` (§ 6.3).
 - **Créateur** : il reçoit le droit ADMIN sur ce qu'il crée, sauf politique contraire définie sur le dossier parent.
+- **Corbeilles** : une corbeille **ne donne aucun droit**.
+  - Déposer, transmettre ou copier vers une corbeille exige que le destinataire (l'utilisateur, ou le groupe pour une corbeille de groupe) ait **déjà READ** sur le document. Sinon : `422`.
+  - Listes et compteurs de corbeille : filtre ACL joint **dans la requête SQL**.
+  - Une règle d'attribution qui vise un destinataire sans droit ne crée rien et lève une alerte d'administration.
 
 ### 8.3 Réseau et plateforme
 - NetworkPolicy *egress* qui refuse tout par défaut, avec des autorisations explicites par service interne.
@@ -336,6 +343,7 @@ Les propriétés sous `meta` sont **ajoutées par `MappingSynchronizer`** (`PUT 
 
 - **Cycle de vie** : brouillon → validation serveur → publication (nouvelle version de la définition). Les instances en cours restent sur leur version.
 - **Déclenchement** : sur `document.created` si un `workflow_assignment` existe pour la classe, ou manuellement.
+- **Tâches = éléments de corbeille** : chaque *user task* crée un `basket_item` (source `WORKFLOW`, `workflow_task_id`) dans la corbeille de l'assigné ou du groupe candidat. *claim* = prendre, *complete* = élément `DONE`. Il n'y a pas de boîte de tâches séparée.
 - **Escalades** : *boundary timer events*.
 - **Audit** : un `ExecutionListener` global produit un `audit_event` par transition.
 - **Éditeur** : bpmn-js + properties panel, avec un *provider* GED (groupes, délais, conditions sur les champs `metadata.<code>`).
@@ -368,7 +376,7 @@ Les propriétés sous `meta` sont **ajoutées par `MappingSynchronizer`** (`PUT 
 | Documentation | Swagger UI + Redoc servis sur `/api/docs` (sans CDN) |
 
 ### 12.2 Ressources
-Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la liste complète des endpoints par domaine : schéma, dossiers, documents, fichiers, prévisualisation, recherche, workflows, tâches, IA, conformité, imports, webhooks.
+Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la liste complète des endpoints par domaine : schéma, dossiers, corbeilles (`/baskets`, `/basket-items`, `/routing-rules`), documents, fichiers, prévisualisation, recherche, workflows, tâches, IA, conformité, imports, webhooks.
 
 ### 12.3 Codes de retour usuels
 
@@ -406,8 +414,8 @@ Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la lis
 
 - **Durée** : **20 ans pour tous les documents** (`ged.retention.default=P20Y`). Les politiques par classe restent possibles techniquement, mais aucune n'est prévue.
 - **Rétention** : `RetentionJob` (`@Scheduled` + ShedLock), traité par lots. Point de départ : date de dépôt ou valeur d'un champ date. Action : suppression ou archivage. Les documents sous legal hold sont exclus.
-- **Legal hold** : vérifié dans **toutes** les voies de suppression (API, corbeille, rétention, import).
-- **Corbeille** : suppression logique, puis purge après `ged.trash.retention` (30 jours par défaut), sauf legal hold.
+- **Legal hold** : vérifié dans **toutes** les voies de suppression (API, éléments supprimés, rétention, import).
+- **Éléments supprimés** (endpoint `/trash`) : suppression logique, puis purge après `ged.trash.retention` (30 jours par défaut), sauf legal hold. À ne pas confondre avec les corbeilles de travail (§ 3, `basket`).
 - **Archivage** : copie vers `ged-archive` avec Object Lock (`RetainUntilDate` = fin de rétention). Mode COMPLIANCE ou GOVERNANCE : **[décision T44.1]**.
 - **Audit** :
   - chaîne de hash `hash = SHA-256(prev_hash || contenu canonique)`, avec une insertion sérialisée ;
@@ -472,14 +480,15 @@ Voir la section « API REST publique » de [CLAUDE.md](../CLAUDE.md) pour la lis
 | 0001 | Contrat d'abord (OpenAPI, code généré) | à rédiger (itération 3) |
 | 0002 | Aucune sortie réseau (NetworkPolicy, pas de CDN) | à rédiger (itération 5) |
 | 0003 | Stockage adressé par contenu (SHA-256) | à rédiger (itération 7) |
-| 0004 | Métadonnées en JSONB pilotées par le schéma | à rédiger (itération 11) |
-| 0005 | OpenSearch avec mapping strict et filtrage des ACL dans la requête | à rédiger (itération 18) |
-| 0006 | Outbox transactionnelle + Kafka | à rédiger (itération 16) |
-| 0007 | Gotenberg pour les renditions | à rédiger (itération 22) |
-| 0008 | IA locale Ollama/Gemma 4 derrière `DocumentClassifier` | à rédiger (itération 24) |
-| 0009 | Flowable embarqué et BPMN restreint | à rédiger (itération 25) |
+| 0004 | Métadonnées en JSONB pilotées par le schéma | à rédiger (itération 12) |
+| 0005 | OpenSearch avec mapping strict et filtrage des ACL dans la requête | à rédiger (itération 21) |
+| 0006 | Outbox transactionnelle + Kafka | à rédiger (itération 19) |
+| 0007 | Gotenberg pour les renditions | à rédiger (itération 25) |
+| 0008 | IA locale Ollama/Gemma 4 derrière `DocumentClassifier` | à rédiger (itération 27) |
+| 0009 | Flowable embarqué et BPMN restreint | à rédiger (itération 28) |
 | 0010 | Mode Object Lock | **décision attendue (T44.1)** |
-| 0011 | Spring Batch pour l'import massif | à rédiger (itération 30) |
+| 0011 | Spring Batch pour l'import massif | à rédiger (itération 33) |
+| 0012 | Corbeilles de travail sans droit implicite | à rédiger (itération 11) |
 
 ## 19. Points ouverts techniques
 

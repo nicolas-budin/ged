@@ -24,7 +24,8 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 | Profil | Description | Besoins clés |
 |---|---|---|
 | **Utilisateur** | Employé qui dépose, consulte et recherche des documents | Trouver vite, déposer sans effort, consulter sans télécharger |
-| **Valideur** | Manager ou expert qui approuve des documents | Voir ses tâches, décider en un clic, être relancé |
+| **Valideur** | Manager ou expert qui approuve des documents | Voir ses tâches dans sa corbeille, décider en un clic, être relancé |
+| **Service courrier** | Collaborateurs qui numérisent le courrier entrant | Répartir chaque document dans la bonne corbeille, vite |
 | **Administrateur fonctionnel** | Référent métier ou administrateur de la GED | Configurer types, champs, workflows et droits sans développeur |
 | **Responsable conformité** | Responsable conformité, DPO, juriste | Conservation légale, legal hold, preuves d'audit |
 | **Intégrateur** | Développeur d'une application tierce (ERP, numérisation) | API stable, documentée, fiable |
@@ -79,7 +80,7 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 | # | Exigence | Profil | Prio | BR | US |
 |---|---|---|---|---|---|
 | **UR-23** | Un document déposé dans un type associé à un circuit part automatiquement en validation. | Utilisateur | M | BR-07 | US-36 |
-| **UR-24** | Je vois la liste de mes tâches et de celles de mes groupes. | Valideur | M | BR-07 | US-37 |
+| **UR-24** | Mes tâches de validation et celles de mes groupes apparaissent **dans ma corbeille**, avec les autres documents à traiter. | Valideur | M | BR-07, BR-23 | US-36, US-37 |
 | **UR-25** | J'approuve, je rejette avec un commentaire ou je délègue une tâche, depuis la liste ou la fiche du document. | Valideur | M | BR-07 | US-37 |
 | **UR-26** | Je reçois un email quand une tâche m'est attribuée, et une relance si je dépasse le délai. | Valideur | M | BR-07 | US-37 |
 | **UR-27** | Je vois où en est un document dans son circuit (schéma avec l'étape en cours). | Utilisateur | S | BR-07 | US-40 |
@@ -87,7 +88,19 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 | **UR-29** | Je dessine mes propres circuits dans un éditeur graphique, avec des conditions sur les champs du document, puis je les publie. | Admin fonctionnel | S | BR-07 | US-40 |
 | **UR-30** | Je ne peux pas publier un circuit dangereux ou incohérent : la GED m'explique pourquoi. | Admin fonctionnel | M | BR-07 | US-39 |
 
-### 3.6 Administration
+### 3.6 Corbeilles de travail
+
+| # | Exigence | Profil | Prio | BR | US |
+|---|---|---|---|---|---|
+| **UR-51** | Ma page d'accueil est **ma corbeille** : les documents que je dois traiter, ceux de mes corbeilles de groupe, avec compteurs, échéances et priorités. | Utilisateur | M | BR-23 | US-53, US-57 |
+| **UR-52** | Dans une corbeille de groupe, je **prends** un document pour le traiter, et mes collègues voient que je m'en occupe. | Utilisateur | M | BR-23 | US-54 |
+| **UR-53** | Je **transmets** un document à un collègue ou à un service, ou je l'envoie **en copie pour information**, avec un commentaire. Je **marque traité** un document, qui sort alors de ma corbeille. | Utilisateur | M | BR-23 | US-54 |
+| **UR-54** | Je ne peux envoyer un document qu'à quelqu'un qui a le droit de le lire. La GED ne me propose que ces destinataires. | Utilisateur | M | BR-23, BR-21 | US-55, US-57 |
+| **UR-55** | Je trie le courrier entrant numérisé : pour chaque document, je choisis sa classe et sa ou ses corbeilles, avec une proposition automatique. | Service courrier | M | BR-23 | US-57 |
+| **UR-56** | Je définis des **règles d'attribution** (classe + conditions sur les champs → corbeille). Je suis alerté si une règle vise quelqu'un qui n'a pas le droit de lire. | Admin fonctionnel | M | BR-23 | US-56 |
+| **UR-57** | Je crée et nomme (fr/de/en) les corbeilles des groupes et départements. | Admin fonctionnel | M | BR-23 | US-53 |
+
+### 3.7 Administration
 
 | # | Exigence | Profil | Prio | BR | US |
 |---|---|---|---|---|---|
@@ -99,7 +112,7 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 | **UR-36** | J'accorde des droits (lecture, écriture, suppression, administration) à des personnes ou groupes sur un dossier, et ils s'appliquent à tout son contenu. | Admin fonctionnel | M | BR-09 | US-13 |
 | **UR-37** | J'importe un lot de documents décrit par un fichier, après une vérification à blanc, et je suis l'avancement. | Admin fonctionnel | M | BR-16 | US-46, US-48 |
 
-### 3.7 Conformité
+### 3.8 Conformité
 
 | # | Exigence | Profil | Prio | BR | US |
 |---|---|---|---|---|---|
@@ -109,9 +122,9 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 | **UR-50** | Je sais qui a consulté les documents d'un assuré donné, pour répondre à une demande d'accès ou à un contrôle (nLPD). | Conformité | M | BR-21 | US-14, US-45 |
 | **UR-41** | J'exporte le journal d'audit et je prouve qu'il n'a pas été modifié. | Conformité | M | BR-12 | US-15, US-45 |
 | **UR-42** | Les documents archivés sont techniquement impossibles à modifier ou supprimer. | Conformité | M | BR-13 | US-44 |
-| **UR-43** | Je restaure un document supprimé par erreur depuis la corbeille. | Utilisateur | S | BR-01 | US-43 |
+| **UR-43** | Je restaure un document supprimé par erreur depuis les **éléments supprimés**. | Utilisateur | S | BR-01 | US-43 |
 
-### 3.8 Intégration (API)
+### 3.9 Intégration (API)
 
 | # | Exigence | Profil | Prio | BR | US |
 |---|---|---|---|---|---|
@@ -139,13 +152,13 @@ Priorités : **M** = indispensable en V1, **S** = important, **C** = souhaitable
 
 ## 5. Parcours utilisateurs clés
 
-### Parcours 1 : Déposer et valider une facture
-1. L'utilisateur glisse un scan de facture dans le dossier « Comptabilité/Fournisseurs ».
-2. Le dépôt est immédiat. Quelques instants plus tard, le document est reconnu comme « Facture fournisseur » et les champs (n°, fournisseur, montant, échéance) sont pré-remplis.
-3. L'utilisateur vérifie et corrige si besoin.
-4. Le montant dépasse 5 000 € : le circuit « Validation selon un seuil » envoie une tâche au comptable, puis au directeur financier.
-5. Les valideurs reçoivent un email, puis approuvent depuis « Mes tâches ».
-6. La facture passe au statut « Validée ». Chaque étape figure dans l'historique.
+### Parcours 1 : Du courrier entrant à la facture validée
+1. Le service courrier numérise une facture. Elle arrive dans la corbeille « Courrier entrant ».
+2. Quelques instants plus tard, le document est reconnu comme « Facture fournisseur » et les champs (n°, fournisseur, montant, échéance) sont pré-remplis. Une règle d'attribution propose la corbeille « Comptabilité — Fournisseurs ».
+3. Le service courrier confirme d'un clic. La facture est classée dans son dossier et apparaît dans la corbeille de la comptabilité.
+4. Une comptable la **prend**, vérifie les champs et corrige si besoin.
+5. Le montant dépasse 5 000 CHF : le circuit « Validation selon un seuil » dépose une tâche dans la corbeille du directeur financier, qui reçoit un email.
+6. Il approuve depuis **sa corbeille**. La facture passe au statut « Validée » et sort des corbeilles. Chaque étape figure dans l'historique.
 
 ### Parcours 2 : Retrouver un contrat
 1. L'utilisateur tape « Dupont résiliation ».
